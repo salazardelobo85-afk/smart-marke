@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Market Signals AI v6.1 — DeepSeek + Grok</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#070B14',
+                        cardBg: '#0F1623',
+                        cardBorder: '#1A2332',
+                        accent: '#3B82F6',
+                        bull: '#10B981',
+                        bear: '#EF4444',
+                        wait: '#F59E0B'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #070B14; color: #E2E8F0; font-family: system-ui, -apple-system, sans-serif; }
+        .glow-bull { box-shadow: 0 0 18px rgba(16,185,129,0.4); }
+        .glow-bear { box-shadow: 0 0 18px rgba(239,68,68,0.4); }
+        .pulse-bull { animation: pb 1.8s infinite; }
+        .pulse-bear { animation: pr 1.8s infinite; }
+        @keyframes pb { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{box-shadow:0 0 0 10px transparent} }
+        @keyframes pr { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 10px transparent} }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #070B14; }
+        ::-webkit-scrollbar-thumb { background: #1A2332; border-radius: 3px; }
+        .ai-loading { opacity: 0.6; }
+    </style>
+</head>
+<body class="min-h-screen pb-10">
+
+<!-- HEADER -->
+<header class="sticky top-0 z-50 border-b border-cardBorder bg-cardBg/90 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent/20 text-accent rounded-lg border border-accent/30">
+                <i data-lucide="cpu" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-white text-base leading-tight">SMART MARKET SIGNALS <span class="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded ml-1">AI v6.1</span></h1>
+                <p class="text-[11px] text-gray-500">DeepSeek + Grok • Análise Técnica + IA em Tempo Real</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div id="connStatus" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-950/50 border border-red-800/40 text-red-400 text-[11px] font-semibold">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span id="connText">Offline</span>
+            </div>
+            <button onclick="toggleConfig()" class="p-2 bg-gray-800/80 hover:bg-gray-700 rounded-lg border border-gray-700 text-gray-300">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 mt-5 space-y-5">
+
+    <!-- TF + AÇÕES -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-cardBg border border-cardBorder rounded-xl p-3">
+        <div class="flex items-center gap-1.5 overflow-x-auto">
+            <span class="text-[11px] text-gray-500 mr-1">TF:</span>
+            <div id="tfBtns" class="flex gap-1"></div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="runAIAnalysis()" id="aiBtn" class="px-3 py-1.5 text-[11px] bg-purple-600/20 text-purple-300 border border-purple-500/40 rounded-lg flex items-center gap-1.5 font-semibold hover:bg-purple-600/30">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Analisar com IA
+            </button>
+            <button onclick="forceRefresh()" class="px-2.5 py-1.5 text-[11px] bg-accent/15 text-accent border border-accent/30 rounded-lg flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar
+            </button>
+            <button id="soundBtn" onclick="toggleSound()" class="px-2.5 py-1.5 text-[11px] bg-gray-800 text-gray-400 border border-gray-700 rounded-lg flex items-center gap-1">
+                <i data-lucide="volume-2" class="w-3 h-3"></i> Som
+            </button>
+        </div>
+    </div>
+
+    <!-- CARDS PRINCIPAIS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- EUR/USD -->
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-4 space-y-3" id="card-EURUSD">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-bold text-white">EUR/USD</h2>
+                    <p class="text-[11px] text-gray-500">TF <span class="active-tf font-semibold text-gray-300">M15</span> • <span id="src-EURUSD">—</span></p>
+                </div>
+                <div id="badge-EURUSD" class="px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">🟡 WAIT</div>
+            </div>
+
+            <div id="advice-EURUSD" class="p-3.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center transition-all">
+                <div class="text-[10px] uppercase tracking-wider text-yellow-500/70 mb-0.5">Estado da Operação</div>
+                <div id="adviceTxt-EURUSD" class="text-base font-bold text-yellow-400">🟡 AGUARDAR</div>
+                <div id="adviceSub-EURUSD" class="text-[11px] text-gray-500 mt-0.5">Força: 0%</div>
+            </div>
+
+            <!-- IA Opinions -->
+            <div class="grid grid-cols-2 gap-2">
+                <div id="aiDeep-EURUSD" class="p-2.5 rounded-lg bg-darkBg/80 border border-purple-500/20 text-center">
+                    <div class="text-[10px] text-purple-400 font-semibold mb-0.5">DeepSeek</div>
+                    <div id="aiDeepTxt-EURUSD" class="text-xs text-gray-500">—</div>
+                </div>
+                <div id="aiGrok-EURUSD" class="p-2.5 rounded-lg bg-darkBg/80 border border-sky-500/20 text-center">
+                    <div class="text-[10px] text-sky-400 font-semibold mb-0.5">Grok</div>
+                    <div id="aiGrokTxt-EURUSD" class="text-xs text-gray-500">—</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-sm font-mono bg-darkBg/70 rounded-lg p-2.5">
+                <div><span class="text-[10px] text-gray-500 block">Preço</span><span id="price-EURUSD" class="text-white font-bold text-base">—.-----</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Var</span><span id="chg-EURUSD" class="text-gray-400">0.00%</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Máx/Mín</span><span id="range-EURUSD" class="text-gray-400 text-xs">— / —</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Update</span><span id="time-EURUSD" class="text-gray-500 text-xs">—:—:—</span></div>
+            </div>
+
+            <div>
+                <div class="flex justify-between text-[11px] mb-1"><span class="text-gray-500">Confluência Técnica</span><span id="strVal-EURUSD" class="font-bold">0%</span></div>
+                <div class="h-2 bg-gray-800 rounded-full overflow-hidden"><div id="strBar-EURUSD" class="h-2 rounded-full bg-gray-600 transition-all" style="width:0%"></div></div>
+            </div>
+
+            <button onclick="openChartModal('EURUSD')" id="chartBtn-EURUSD"
+                class="w-full py-2.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-yellow-400 font-bold text-sm flex items-center justify-center gap-2 transition-all hover:bg-yellow-950/40">
+                <i data-lucide="candlestick-chart" class="w-4 h-4"></i>
+                <span id="chartBtnTxt-EURUSD">Ver Gráfico • 🟡 AGUARDAR</span>
+            </button>
+
+            <div id="reasons-EURUSD" class="text-[11px] space-y-1 text-gray-400 max-h-20 overflow-y-auto"></div>
+        </div>
+
+        <!-- XAU/USD -->
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-4 space-y-3" id="card-XAUUSD">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-bold text-white">XAU/USD</h2>
+                    <p class="text-[11px] text-gray-500">TF <span class="active-tf font-semibold text-gray-300">M15</span> • <span id="src-XAUUSD">—</span></p>
+                </div>
+                <div id="badge-XAUUSD" class="px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">🟡 WAIT</div>
+            </div>
+
+            <div id="advice-XAUUSD" class="p-3.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center transition-all">
+                <div class="text-[10px] uppercase tracking-wider text-yellow-500/70 mb-0.5">Estado da Operação</div>
+                <div id="adviceTxt-XAUUSD" class="text-base font-bold text-yellow-400">🟡 AGUARDAR</div>
+                <div id="adviceSub-XAUUSD" class="text-[11px] text-gray-500 mt-0.5">Força: 0%</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div id="aiDeep-XAUUSD" class="p-2.5 rounded-lg bg-darkBg/80 border border-purple-500/20 text-center">
+                    <div class="text-[10px] text-purple-400 font-semibold mb-0.5">DeepSeek</div>
+                    <div id="aiDeepTxt-XAUUSD" class="text-xs text-gray-500">—</div>
+                </div>
+                <div id="aiGrok-XAUUSD" class="p-2.5 rounded-lg bg-darkBg/80 border border-sky-500/20 text-center">
+                    <div class="text-[10px] text-sky-400 font-semibold mb-0.5">Grok</div>
+                    <div id="aiGrokTxt-XAUUSD" class="text-xs text-gray-500">—</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-sm font-mono bg-darkBg/70 rounded-lg p-2.5">
+                <div><span class="text-[10px] text-gray-500 block">Preço</span><span id="price-XAUUSD" class="text-white font-bold text-base">————.—</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Var</span><span id="chg-XAUUSD" class="text-gray-400">0.00%</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Máx/Mín</span><span id="range-XAUUSD" class="text-gray-400 text-xs">— / —</span></div>
+                <div><span class="text-[10px] text-gray-500 block">Update</span><span id="time-XAUUSD" class="text-gray-500 text-xs">—:—:—</span></div>
+            </div>
+
+            <div>
+                <div class="flex justify-between text-[11px] mb-1"><span class="text-gray-500">Confluência Técnica</span><span id="strVal-XAUUSD" class="font-bold">0%</span></div>
+                <div class="h-2 bg-gray-800 rounded-full overflow-hidden"><div id="strBar-XAUUSD" class="h-2 rounded-full bg-gray-600 transition-all" style="width:0%"></div></div>
+            </div>
+
+            <button onclick="openChartModal('XAUUSD')" id="chartBtn-XAUUSD"
+                class="w-full py-2.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-yellow-400 font-bold text-sm flex items-center justify-center gap-2 transition-all hover:bg-yellow-950/40">
+                <i data-lucide="candlestick-chart" class="w-4 h-4"></i>
+                <span id="chartBtnTxt-XAUUSD">Ver Gráfico • 🟡 AGUARDAR</span>
+            </button>
+
+            <div id="reasons-XAUUSD" class="text-[11px] space-y-1 text-gray-400 max-h-20 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- BOTÕES SECUNDÁRIOS -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button onclick="openHistoryModal()" class="py-3 bg-cardBg border border-cardBorder rounded-xl text-xs font-semibold text-gray-300 hover:border-accent/50 hover:text-accent flex flex-col items-center gap-1">
+            <i data-lucide="history" class="w-4 h-4"></i> Históricos
+        </button>
+        <button onclick="openSessionModal()" class="py-3 bg-cardBg border border-cardBorder rounded-xl text-xs font-semibold text-gray-300 hover:border-emerald-500/50 hover:text-emerald-400 flex flex-col items-center gap-1">
+            <i data-lucide="radio" class="w-4 h-4"></i> Sessão Live
+        </button>
+        <button onclick="openRiskModal()" class="py-3 bg-cardBg border border-cardBorder rounded-xl text-xs font-semibold text-gray-300 hover:border-accent/50 hover:text-accent flex flex-col items-center gap-1">
+            <i data-lucide="calculator" class="w-4 h-4"></i> Risco
+        </button>
+        <button onclick="openStrategiesModal()" class="py-3 bg-cardBg border border-cardBorder rounded-xl text-xs font-semibold text-gray-300 hover:border-purple-500/50 hover:text-purple-400 flex flex-col items-center gap-1">
+            <i data-lucide="brain" class="w-4 h-4"></i> Estratégias
+        </button>
+    </div>
+</main>
+
+<!-- MODAL GRÁFICO -->
+<div id="chartModal" class="fixed inset-0 bg-black/90 backdrop-blur z-[70] hidden flex flex-col">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-cardBorder bg-cardBg">
+        <div class="flex items-center gap-3">
+            <h3 id="chartModalTitle" class="font-bold text-white text-sm">Gráfico</h3>
+            <div id="chartModalBadge" class="px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-500/15 border border-yellow-500/40 text-yellow-400">🟡 AGUARDAR</div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="sendChartToAI()" id="cameraBtn" title="Enviar gráfico para IAs analisarem" class="p-2 bg-purple-600/20 hover:bg-purple-600/40 rounded-lg border border-purple-500/40 text-purple-300 flex items-center gap-1.5">
+                <i data-lucide="camera" class="w-4 h-4"></i>
+                <span class="text-[11px] font-semibold hidden sm:inline">IA Chart</span>
+            </button>
+            <button onclick="openAssetHistory()" id="chartHistBtn" title="Histórico deste ativo" class="p-2 bg-accent/15 hover:bg-accent/30 rounded-lg border border-accent/30 text-accent flex items-center gap-1.5">
+                <i data-lucide="history" class="w-4 h-4"></i>
+                <span class="text-[11px] font-semibold hidden sm:inline" id="chartHistBtnTxt">Histórico</span>
+            </button>
+            <button onclick="closeChartModal()" class="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+    </div>
+    <div class="flex-1 relative"><div id="tvChartContainer" class="w-full h-full"></div></div>
+    <div class="px-4 py-3 border-t border-cardBorder bg-cardBg space-y-2">
+        <div id="chartModalAdvice" class="text-sm font-bold text-yellow-400">🟡 Aguardando...</div>
+        <div class="flex flex-wrap gap-2 text-[11px]">
+            <div id="chartAIDeep" class="px-2.5 py-1 rounded-lg bg-purple-950/40 border border-purple-500/30 text-purple-300">DeepSeek: —</div>
+            <div id="chartAIGrok" class="px-2.5 py-1 rounded-lg bg-sky-950/40 border border-sky-500/30 text-sky-300">Grok: —</div>
+            <div id="chartLiveStatus" class="px-2.5 py-1 rounded-lg bg-gray-800/60 border border-gray-600 text-gray-400">Live: —</div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HISTÓRICOS -->
+<div id="historyModal" class="fixed inset-0 bg-black/85 backdrop-blur z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b border-cardBorder">
+            <h3 id="historyModalTitle" class="font-bold text-white flex items-center gap-2"><i data-lucide="history" class="w-4 h-4 text-accent"></i> Históricos</h3>
+            <div class="flex items-center gap-2">
+                <button onclick="switchHistView('ALL')" id="histBtnAll" class="px-2 py-1 text-[10px] rounded bg-accent/20 text-accent border border-accent/40 font-semibold">Todos</button>
+                <button onclick="switchHistView('EURUSD')" id="histBtnEUR" class="px-2 py-1 text-[10px] rounded bg-gray-800 text-gray-400 border border-gray-700">EUR/USD</button>
+                <button onclick="switchHistView('XAUUSD')" id="histBtnXAU" class="px-2 py-1 text-[10px] rounded bg-gray-800 text-gray-400 border border-gray-700">XAU/USD</button>
+                <button onclick="closeModal('historyModal')" class="text-gray-400 hover:text-white ml-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+        <div id="histGrid" class="grid grid-cols-1 md:grid-cols-2 gap-0 flex-1 overflow-hidden">
+            <div id="histColEUR" class="border-r border-cardBorder p-4 overflow-y-auto">
+                <h4 class="text-xs font-bold text-blue-400 mb-2">EUR/USD</h4>
+                <div id="hist-EURUSD" class="space-y-1 text-[11px] font-mono"></div>
+            </div>
+            <div id="histColXAU" class="p-4 overflow-y-auto">
+                <h4 class="text-xs font-bold text-amber-400 mb-2">XAU/USD</h4>
+                <div id="hist-XAUUSD" class="space-y-1 text-[11px] font-mono"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SESSÃO -->
+<div id="sessionModal" class="fixed inset-0 bg-black/85 backdrop-blur z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b border-cardBorder">
+            <div>
+                <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="radio" class="w-4 h-4 text-emerald-400"></i> Sessão Live</h3>
+                <p class="text-[11px] text-gray-500">Atualiza a cada 15s</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="sessionTimer" class="text-[11px] font-mono text-gray-500 bg-gray-800 px-2.5 py-1 rounded-full">15s</span>
+                <button onclick="closeModal('sessionModal')" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+            <div id="sessBox-EURUSD" class="p-4 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center">
+                <div class="text-[10px] uppercase text-yellow-500/70 mb-1">EUR/USD</div>
+                <div id="sessTxt-EURUSD" class="text-xl font-black text-yellow-400">🟡 AGUARDAR</div>
+                <div id="sessSub-EURUSD" class="text-xs text-gray-500 mt-1">Força 0%</div>
+            </div>
+            <div id="sessBox-XAUUSD" class="p-4 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center">
+                <div class="text-[10px] uppercase text-yellow-500/70 mb-1">XAU/USD</div>
+                <div id="sessTxt-XAUUSD" class="text-xl font-black text-yellow-400">🟡 AGUARDAR</div>
+                <div id="sessSub-XAUUSD" class="text-xs text-gray-500 mt-1">Força 0%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL RISCO -->
+<div id="riskModal" class="fixed inset-0 bg-black/85 backdrop-blur z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-sm p-5 space-y-4">
+        <div class="flex justify-between items-center">
+            <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="calculator" class="w-4 h-4 text-accent"></i> Gestão de Risco</h3>
+            <button onclick="closeModal('riskModal')" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="space-y-3 text-xs">
+            <div class="grid grid-cols-3 gap-2">
+                <div><label class="text-gray-500 block mb-1">Saldo $</label><input id="riskBal" type="number" value="10000" oninput="calcRisk()" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1.5 text-white font-mono"></div>
+                <div><label class="text-gray-500 block mb-1">Risco %</label><input id="riskPct" type="number" value="1" step="0.1" oninput="calcRisk()" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1.5 text-white font-mono"></div>
+                <div><label class="text-gray-500 block mb-1">SL Pips</label><input id="riskSL" type="number" value="15" oninput="calcRisk()" class="w-full bg-darkBg border border-cardBorder rounded px-2 py-1.5 text-white font-mono"></div>
+            </div>
+            <div class="p-3 bg-darkBg rounded-lg border border-cardBorder font-mono space-y-1">
+                <div class="flex justify-between"><span class="text-gray-500">Risco $</span><span id="riskAmt" class="text-white font-bold">$100.00</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Lote EUR</span><span id="lotEUR" class="text-accent font-bold">0.67</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Lote XAU</span><span id="lotXAU" class="text-amber-400 font-bold">0.07</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ESTRATÉGIAS -->
+<div id="strategiesModal" class="fixed inset-0 bg-black/85 backdrop-blur z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 space-y-4">
+        <div class="flex justify-between items-center">
+            <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="brain" class="w-4 h-4 text-purple-400"></i> Motor v6</h3>
+            <button onclick="closeModal('strategiesModal')" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-emerald-400 font-bold">SMC Structure</span><br>HH/HL • BOS • CHoCH</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-blue-400 font-bold">Order Blocks + FVG</span><br>Zonas institucionais</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-purple-400 font-bold">EMA 8/21/55</span><br>Alinhamento tendência</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-amber-400 font-bold">MACD</span><br>Cross + Histograma</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-cyan-400 font-bold">RSI</span><br>Momentum + Extremos</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-pink-400 font-bold">Stochastic</span><br>Sobrecompra/venda</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-orange-400 font-bold">Liquidity Sweep</span><br>Varredura + Reversão</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-indigo-400 font-bold">Candle Patterns</span><br>Engulfing • Pinbar</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-rose-400 font-bold">VWAP Proxy</span><br>Média ponderada</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-teal-400 font-bold">Momentum Score</span><br>Velocidade de preço</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-lime-400 font-bold">ADX Trend Strength</span><br>Força da tendência</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-yellow-400 font-bold">Bollinger Bands</span><br>Volatilidade + extremos</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-red-400 font-bold">Support / Resistance</span><br>Níveis chave</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-violet-400 font-bold">Candle Sequence</span><br>3 velas consecutivas</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-gray-300 font-bold">ATR Volatility Filter</span><br>Filtro de mercado morto</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-emerald-500/50"><span class="text-emerald-300 font-bold">★ Uptrend Above MA</span><br>Tendência forte acima EMA</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-emerald-500/50"><span class="text-emerald-300 font-bold">★ Above-Avg Bull Power</span><br>Força de alta acima da média</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-sky-300 font-bold">SMA 50 Bias</span><br>Preço vs média 50</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-fuchsia-400 font-bold">CCI Momentum</span><br>Commodity Channel Index</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-orange-300 font-bold">Williams %R</span><br>Extremos de momentum</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-cyan-300 font-bold">Range Breakout</span><br>Rompimento de range</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-lime-300 font-bold">Body Strength</span><br>Corpos de vela fortes</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-rose-300 font-bold">Consecutive Above MA</span><br>Fechos consecutivos acima</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-amber-300 font-bold">Volatility Expansion</span><br>Expansão de ATR</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-indigo-300 font-bold">Pivot Bounce</span><br>Reação em pivots</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-teal-300 font-bold">Higher-TF Bias</span><br>Viés de timeframe maior</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-pink-300 font-bold">RSI Divergence</span><br>Divergência simples</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-emerald-200 font-bold">EMA 8/21 Cross</span><br>Cruzamento de médias</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-orange-200 font-bold">Price Rejection</span><br>Pinbar de rejeição</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-cyan-200 font-bold">Multi-Candle Mom</span><br>4+ closes alinhados</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-rose-200 font-bold">VWAP Extreme</span><br>Distância extrema VWAP</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-cardBorder"><span class="text-lime-200 font-bold">ADX + DI Strong</span><br>Força direcional ADX</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-purple-500/40"><span class="text-purple-400 font-bold">DeepSeek AI</span><br>Análise inteligente</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-sky-500/40"><span class="text-sky-400 font-bold">Grok AI</span><br>Análise inteligente</div>
+            <div class="p-2.5 bg-darkBg rounded-lg border border-emerald-500/40"><span class="text-emerald-400 font-bold">AI Confluence</span><br>2 IAs a concordar</div>
+        </div>
+        <p class="text-[11px] text-gray-500">33 estratégias técnicas + 2 IAs. Só gera BUY/SELL com confluência forte (limiar 58+ e margem 10 pts). Histórico e estado em tempo real.</p>
+    </div>
+</div>
+
+<!-- CONFIG -->
+<div id="configModal" class="fixed inset-0 bg-black/85 backdrop-blur z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center">
+            <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4 text-accent"></i> Configuração</h3>
+            <button onclick="closeModal('configModal')" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="space-y-4 text-xs">
+            <div>
+                <label class="text-gray-400 font-semibold block mb-1">Fonte de Dados</label>
+                <select id="feedType" onchange="toggleFeedUI()" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-white">
+                    <option value="DEMO">Simulação (Demo)</option>
+                    <option value="TWELVE_DATA">Twelve Data API</option>
+                </select>
+            </div>
+            <div id="twelveBox" class="hidden space-y-2">
+                <label class="text-gray-400 font-semibold block">Twelve Data API Key</label>
+                <input id="apiKey" type="password" placeholder="Chave Twelve Data" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-white font-mono">
+                <p class="text-[10px] text-gray-500">Grátis em <a href="https://twelvedata.com" target="_blank" class="text-accent underline">twelvedata.com</a></p>
+            </div>
+
+            <div class="border-t border-cardBorder pt-4">
+                <label class="text-gray-300 font-semibold block mb-1 flex items-center gap-1.5">
+                    <i data-lucide="brain" class="w-3.5 h-3.5 text-purple-400"></i> DeepSeek API Key
+                </label>
+                <input id="deepseekKey" type="password" placeholder="sk-..." class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-white font-mono">
+                <p class="text-[10px] text-gray-500 mt-1"><a href="https://platform.deepseek.com" target="_blank" class="text-purple-400 underline">platform.deepseek.com</a></p>
+                <div id="deepseekStatus" class="mt-1.5 text-[11px] text-gray-500">Não configurada</div>
+            </div>
+
+            <div class="border-t border-cardBorder pt-4">
+                <label class="text-gray-300 font-semibold block mb-1 flex items-center gap-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-sky-400"></i> Grok API Key (xAI)
+                </label>
+                <input id="grokKey" type="password" placeholder="xai-..." class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-white font-mono">
+                <p class="text-[10px] text-gray-500 mt-1"><a href="https://console.x.ai" target="_blank" class="text-sky-400 underline">console.x.ai</a></p>
+                <div id="grokStatus" class="mt-1.5 text-[11px] text-gray-500">Não configurada</div>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+            <button onclick="closeModal('configModal')" class="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg text-xs">Cancelar</button>
+            <button onclick="saveConfig()" class="px-4 py-2 bg-accent text-white font-bold rounded-lg text-xs">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ================================================================
+   SMART MARKET SIGNALS AI v6.1
+   Análise Técnica + DeepSeek + Grok em simultâneo
+   + Histórico por ativo no gráfico + Botão Câmera (IA Chart)
+   + Estado de operação em tempo real + Toasts de alerta
+   + 33 estratégias técnicas + parser IA com confiança
+   ================================================================ */
+const S = {
+    tf: 'M15',
+    feed: localStorage.getItem('sms_feed') || 'DEMO',
+    key: localStorage.getItem('sms_key') || '',
+    deepseekKey: localStorage.getItem('sms_deepseek') || '',
+    grokKey: localStorage.getItem('sms_grok') || '',
+    sound: false,
+    connected: false,
+    lastNotif: { EURUSD: 0, XAUUSD: 0 },
+    aiRunning: false,
+    data: {
+        EURUSD: { price:0, open:0, high:0, low:0, chg:0, upd:null, sig:'WAIT', str:0, reasons:[], candles:{}, aiDeep:null, aiGrok:null, aiDeepConf:0, aiGrokConf:0, prevSig:'WAIT' },
+        XAUUSD: { price:0, open:0, high:0, low:0, chg:0, upd:null, sig:'WAIT', str:0, reasons:[], candles:{}, aiDeep:null, aiGrok:null, aiDeepConf:0, aiGrokConf:0, prevSig:'WAIT' }
+    },
+    hist: { EURUSD: [], XAUUSD: [] },
+    sessionOpen: false,
+    chartOpen: false,
+    chartAsset: 'EURUSD',
+    histView: 'ALL',
+    countdown: 15,
+    lastHistRecord: { EURUSD: 0, XAUUSD: 0 }
+};
+
+const TFS = ['M1','M5','M15','M30','H1','H4','D1'];
+const TF_MAP = { M1:'1min', M5:'5min', M15:'15min', M30:'30min', H1:'1h', H4:'4h', D1:'1day' };
+const SYM = { EURUSD:'EUR/USD', XAUUSD:'XAU/USD' };
+const TV_SYM = { EURUSD:'FX:EURUSD', XAUUSD:'OANDA:XAUUSD' };
+
+/* ========== INDICADORES ========== */
+const Ind = {
+    ema(c,p){ if(c.length<p)return null; const k=2/(p+1); let e=c.slice(0,p).reduce((s,x)=>s+x.close,0)/p; for(let i=p;i<c.length;i++)e=c[i].close*k+e*(1-k); return e; },
+    emaArr(c,p){ const k=2/(p+1); let e=c[0].close; const r=[]; for(let i=0;i<c.length;i++){e=c[i].close*k+e*(1-k);r.push(e);} return r; },
+    rsi(c,p=14){ if(c.length<p+1)return 50; let g=0,l=0; for(let i=c.length-p;i<c.length;i++){const d=c[i].close-c[i-1].close; if(d>=0)g+=d;else l-=d;} return 100-100/(1+(g/p)/(l/p||1e-5)); },
+    macd(c){ if(c.length<35)return{hist:0,prev:0,cross:0}; const e12=this.emaArr(c,12),e26=this.emaArr(c,26); const m=e12.map((v,i)=>v-e26[i]); const sig=m.slice(-9).reduce((a,b)=>a+b,0)/9; const hist=m[m.length-1]-sig; const prev=m.length>2?m[m.length-2]-sig:0; return{hist,prev,cross:(prev<=0&&hist>0)?1:(prev>=0&&hist<0)?-1:0}; },
+    stoch(c,kP=14){ if(c.length<kP)return 50; const s=c.slice(-kP); const h=Math.max(...s.map(x=>x.high)),l=Math.min(...s.map(x=>x.low)); return h===l?50:((c[c.length-1].close-l)/(h-l))*100; },
+    structure(c){ if(c.length<20)return{s:'N',bos:false}; const r=c.slice(-10),p=c.slice(-20,-10); const mr=Math.max(...r.map(x=>x.high)),mn=Math.min(...r.map(x=>x.low)),mp=Math.max(...p.map(x=>x.high)),mlp=Math.min(...p.map(x=>x.low)); let s='N'; if(mr>mp&&mn>mlp)s='B'; else if(mr<mp&&mn<mlp)s='S'; const lc=c[c.length-1].close; return{s,bos:(s==='B'&&lc>mp)||(s==='S'&&lc<mlp)}; },
+    orderBlocks(c){ const o=[]; for(let i=Math.max(0,c.length-12);i<c.length-2;i++){const a=c[i],b=c[i+1]; const body=Math.abs(a.close-a.open),nb=Math.abs(b.close-b.open); if(a.close<a.open&&nb>body*1.6&&b.close>b.open)o.push('B'); if(a.close>a.open&&nb>body*1.6&&b.close<b.open)o.push('S');} return o; },
+    fvg(c){ const f=[]; for(let i=c.length-6;i<c.length-1;i++){const a=c[i-1],b=c[i+1]; if(!a||!b)continue; if(a.high<b.low)f.push('B'); if(a.low>b.high)f.push('S');} return f; },
+    sweep(c){ if(c.length<14)return null; const ph=Math.max(...c.slice(-16,-5).map(x=>x.high)),pl=Math.min(...c.slice(-16,-5).map(x=>x.low)); const last=c[c.length-1]; if(last.high>ph&&last.close<ph)return'S'; if(last.low<pl&&last.close>pl)return'B'; return null; },
+    patterns(c){ if(c.length<3)return[]; const p=[],c0=c[c.length-1],c1=c[c.length-2]; const b0=Math.abs(c0.close-c0.open),r0=c0.high-c0.low; if(c1.close<c1.open&&c0.close>c0.open&&c0.open<=c1.close&&c0.close>=c1.open)p.push('BE'); if(c1.close>c1.open&&c0.close<c0.open&&c0.open>=c1.close&&c0.close<=c1.open)p.push('SE'); if(b0<r0*0.3){const lw=Math.min(c0.open,c0.close)-c0.low,uw=c0.high-Math.max(c0.open,c0.close); if(lw>b0*2.2)p.push('BP'); if(uw>b0*2.2)p.push('SP');} return p; },
+    momentum(c){ if(c.length<8)return 0; const r=c.slice(-5).map(x=>x.close),o=c.slice(-10,-5).map(x=>x.close); return ((r.reduce((a,b)=>a+b,0)/5)-(o.reduce((a,b)=>a+b,0)/5))/(o.reduce((a,b)=>a+b,0)/5)*100; },
+    vwapProxy(c){ if(c.length<10)return 0; let sum=0,vol=0; c.slice(-20).forEach(x=>{const tp=(x.high+x.low+x.close)/3,v=Math.abs(x.close-x.open)+1e-4; sum+=tp*v; vol+=v;}); return sum/vol; },
+    sma(c,p){ if(c.length<p)return null; return c.slice(-p).reduce((s,x)=>s+x.close,0)/p; },
+    cci(c,p=20){ if(c.length<p)return 0; const slice=c.slice(-p); const tp=slice.map(x=>(x.high+x.low+x.close)/3); const sma=tp.reduce((a,b)=>a+b,0)/p; const md=tp.reduce((a,b)=>a+Math.abs(b-sma),0)/p; return md? (tp[tp.length-1]-sma)/(0.015*md) : 0; },
+    williamsR(c,p=14){ if(c.length<p)return -50; const s=c.slice(-p); const h=Math.max(...s.map(x=>x.high)),l=Math.min(...s.map(x=>x.low)); return h===l?-50:((h-c[c.length-1].close)/(h-l))*-100; },
+    // ★ Tendência de alta forte ACIMA da média (EMA21 + ADX + estrutura)
+    strongUptrendAboveMA(c, price) {
+        if (c.length < 55) return { score: 0, ok: false };
+        const e21 = this.ema(c,21), e55 = this.ema(c,55);
+        if (!e21 || !e55) return { score: 0, ok: false };
+        const above = price > e21 && e21 > e55;
+        // slope of EMA21 last 8 bars vs previous 8
+        const eArr = this.emaArr(c,21);
+        const recentSlope = eArr[eArr.length-1] - eArr[eArr.length-9];
+        const prevSlope = eArr[eArr.length-9] - eArr[eArr.length-17];
+        const steeper = recentSlope > prevSlope && recentSlope > 0;
+        const hh = c[c.length-1].high > Math.max(...c.slice(-8,-1).map(x=>x.high));
+        const ok = above && steeper && hh;
+        return { score: ok ? 14 : (above ? 6 : 0), ok };
+    },
+    // ★ Força de alta acima da média (momentum + corpos + distância da média)
+    aboveAvgBullPower(c, price) {
+        if (c.length < 30) return { score: 0, ok: false };
+        const e21 = this.ema(c,21);
+        if (!e21) return { score: 0, ok: false };
+        const distPct = ((price - e21) / e21) * 100;
+        // avg bullish body of last 20
+        const bodies = c.slice(-20).map(x => x.close > x.open ? (x.close - x.open) : 0);
+        const avgBody = bodies.reduce((a,b)=>a+b,0) / 20;
+        const lastBody = c[c.length-1].close > c[c.length-1].open ? (c[c.length-1].close - c[c.length-1].open) : 0;
+        const strongBody = lastBody > avgBody * 1.3;
+        const mom = this.momentum(c);
+        const ok = distPct > 0.08 && strongBody && mom > 0.04;
+        return { score: ok ? 12 : (distPct > 0.04 ? 5 : 0), ok, distPct };
+    }
+};
+
+/* ========== MOTOR TÉCNICO ========== */
+const Engine = {
+    // ATR simplificado
+    atr(c, p=14) {
+        if (c.length < p+1) return 0;
+        let sum = 0;
+        for (let i = c.length-p; i < c.length; i++) {
+            const tr = Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close));
+            sum += tr;
+        }
+        return sum / p;
+    },
+    // ADX simplificado (força da tendência)
+    adx(c, p=14) {
+        if (c.length < p*2) return 20;
+        let plusDM=0, minusDM=0, trSum=0;
+        for (let i = c.length-p; i < c.length; i++) {
+            const up = c[i].high - c[i-1].high;
+            const down = c[i-1].low - c[i].low;
+            if (up > down && up > 0) plusDM += up;
+            if (down > up && down > 0) minusDM += down;
+            trSum += Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close));
+        }
+        const plusDI = trSum ? (plusDM/trSum)*100 : 0;
+        const minusDI = trSum ? (minusDM/trSum)*100 : 0;
+        const dx = (plusDI+minusDI) ? Math.abs(plusDI-minusDI)/(plusDI+minusDI)*100 : 0;
+        return dx;
+    },
+    // Bollinger Bands
+    bollinger(c, p=20) {
+        if (c.length < p) return { upper:0, mid:0, lower:0, pb:0.5 };
+        const slice = c.slice(-p).map(x=>x.close);
+        const mid = slice.reduce((a,b)=>a+b,0)/p;
+        const variance = slice.reduce((a,b)=>a+Math.pow(b-mid,2),0)/p;
+        const std = Math.sqrt(variance);
+        const upper = mid + 2*std, lower = mid - 2*std;
+        const price = c[c.length-1].close;
+        const pb = (upper-lower) ? (price-lower)/(upper-lower) : 0.5;
+        return { upper, mid, lower, pb };
+    },
+    // Suporte / Resistência recentes
+    srLevels(c) {
+        if (c.length < 30) return { res:0, sup:0 };
+        const highs = c.slice(-30).map(x=>x.high).sort((a,b)=>b-a);
+        const lows = c.slice(-30).map(x=>x.low).sort((a,b)=>a-b);
+        return { res: highs[1]||highs[0], sup: lows[1]||lows[0] };
+    },
+    // Sequência de velas
+    candleSeq(c) {
+        if (c.length < 4) return 0;
+        let bullCount=0, bearCount=0;
+        for (let i=c.length-3; i<c.length; i++) {
+            if (c[i].close > c[i].open) bullCount++;
+            else bearCount++;
+        }
+        if (bullCount===3) return 1;
+        if (bearCount===3) return -1;
+        return 0;
+    },
+    // Range Breakout (últimos 12 vs 20 anteriores)
+    rangeBreakout(c) {
+        if (c.length < 35) return 0;
+        const recent = c.slice(-12);
+        const prev = c.slice(-32, -12);
+        const rHigh = Math.max(...recent.map(x=>x.high));
+        const rLow = Math.min(...recent.map(x=>x.low));
+        const pHigh = Math.max(...prev.map(x=>x.high));
+        const pLow = Math.min(...prev.map(x=>x.low));
+        const last = c[c.length-1].close;
+        if (last > pHigh && rHigh > pHigh) return 1;
+        if (last < pLow && rLow < pLow) return -1;
+        return 0;
+    },
+    // Body strength (média de corpos bullish/bearish)
+    bodyStrength(c) {
+        if (c.length < 15) return 0;
+        let bullB=0, bearB=0;
+        c.slice(-12).forEach(x=>{
+            const body = Math.abs(x.close-x.open);
+            if (x.close > x.open) bullB += body;
+            else bearB += body;
+        });
+        if (bullB > bearB * 1.4) return 1;
+        if (bearB > bullB * 1.4) return -1;
+        return 0;
+    },
+    // Consecutive closes above/below EMA21
+    consecutiveAboveMA(c) {
+        if (c.length < 25) return 0;
+        const eArr = Ind.emaArr(c,21);
+        let above=0, below=0;
+        for (let i=c.length-1; i>=c.length-6; i--) {
+            if (c[i].close > eArr[i]) above++;
+            else if (c[i].close < eArr[i]) below++;
+        }
+        if (above >= 5) return 1;
+        if (below >= 5) return -1;
+        return 0;
+    },
+    // Volatility expansion (ATR atual vs média)
+    volExpansion(c) {
+        if (c.length < 30) return 0;
+        const atrNow = this.atr(c,14);
+        let sum=0;
+        for (let i=0;i<10;i++) {
+            const slice = c.slice(0, c.length-i);
+            sum += this.atr(slice,14);
+        }
+        const atrAvg = sum/10;
+        if (atrNow > atrAvg * 1.35) return 1;
+        if (atrNow < atrAvg * 0.7) return -1;
+        return 0;
+    },
+    // Pivot bounce simples
+    pivotBounce(c) {
+        if (c.length < 20) return 0;
+        const highs = c.slice(-15).map(x=>x.high);
+        const lows = c.slice(-15).map(x=>x.low);
+        const pivotH = Math.max(...highs.slice(0,-2));
+        const pivotL = Math.min(...lows.slice(0,-2));
+        const last = c[c.length-1];
+        if (last.low <= pivotL * 1.001 && last.close > pivotL) return 1;
+        if (last.high >= pivotH * 0.999 && last.close < pivotH) return -1;
+        return 0;
+    },
+    // Higher-TF bias (simula usando janela maior)
+    higherTfBias(c) {
+        if (c.length < 50) return 0;
+        const mid = Math.floor(c.length/2);
+        const older = c.slice(0, mid);
+        const newer = c.slice(mid);
+        const olderAvg = older.reduce((s,x)=>s+x.close,0)/older.length;
+        const newerAvg = newer.reduce((s,x)=>s+x.close,0)/newer.length;
+        if (newerAvg > olderAvg * 1.0015) return 1;
+        if (newerAvg < olderAvg * 0.9985) return -1;
+        return 0;
+    },
+    // RSI Divergence simples (preço faz HH, RSI não)
+    rsiDivergence(c) {
+        if (c.length < 30) return 0;
+        const rsiNow = Ind.rsi(c);
+        const mid = c.slice(0, -10);
+        const rsiPrev = Ind.rsi(mid);
+        const priceNow = c[c.length-1].close;
+        const pricePrev = mid[mid.length-1].close;
+        // Bullish div: preço LL, RSI HL
+        if (priceNow < pricePrev && rsiNow > rsiPrev + 3) return 1;
+        // Bearish div: preço HH, RSI LH
+        if (priceNow > pricePrev && rsiNow < rsiPrev - 3) return -1;
+        return 0;
+    },
+
+    analyze(asset) {
+        const d = S.data[asset];
+        const c = d.candles[S.tf] || [];
+        if (c.length < 30) { d.sig='WAIT'; d.str=0; d.reasons=[{t:'Dados insuficientes',ty:'n'}]; return; }
+
+        let bull=0, bear=0;
+        const reasons=[];
+
+        // 1. Estrutura SMC (peso alto)
+        const st=Ind.structure(c);
+        if(st.s==='B'){bull+=15;reasons.push({t:'Estrutura BULLISH (HH/HL)',ty:'b'});}
+        else if(st.s==='S'){bear+=15;reasons.push({t:'Estrutura BEARISH (LH/LL)',ty:'s'});}
+        if(st.bos){if(st.s==='B'){bull+=12;reasons.push({t:'BOS de Alta',ty:'b'});}else{bear+=12;reasons.push({t:'BOS de Baixa',ty:'s'});}}
+
+        // 2. EMAs 8/21/55 alinhadas
+        const e8=Ind.ema(c,8),e21=Ind.ema(c,21),e55=Ind.ema(c,55);
+        if(e8&&e21&&e55){
+            if(d.price>e8&&e8>e21&&e21>e55){bull+=13;reasons.push({t:'EMAs 8/21/55 ALTA',ty:'b'});}
+            else if(d.price<e8&&e8<e21&&e21<e55){bear+=13;reasons.push({t:'EMAs 8/21/55 BAIXA',ty:'s'});}
+            else if(e8>e21){bull+=4;} else if(e8<e21){bear+=4;}
+        }
+
+        // 3. RSI
+        const rsi=Ind.rsi(c);
+        if(rsi>54&&rsi<70){bull+=8;reasons.push({t:`RSI altista (${rsi.toFixed(0)})`,ty:'b'});}
+        else if(rsi<46&&rsi>30){bear+=8;reasons.push({t:`RSI baixista (${rsi.toFixed(0)})`,ty:'s'});}
+        else if(rsi>=75){bear+=4;reasons.push({t:`RSI sobrecompra (${rsi.toFixed(0)})`,ty:'n'});}
+        else if(rsi<=25){bull+=4;reasons.push({t:`RSI sobrevenda (${rsi.toFixed(0)})`,ty:'n'});}
+
+        // 4. MACD
+        const mc=Ind.macd(c);
+        if(mc.cross===1){bull+=12;reasons.push({t:'MACD Cross ALTA',ty:'b'});}
+        else if(mc.cross===-1){bear+=12;reasons.push({t:'MACD Cross BAIXA',ty:'s'});}
+        else if(mc.hist>0&&mc.hist>mc.prev){bull+=7;reasons.push({t:'MACD histograma ↑',ty:'b'});}
+        else if(mc.hist<0&&mc.hist<mc.prev){bear+=7;reasons.push({t:'MACD histograma ↓',ty:'s'});}
+
+        // 5. Stochastic
+        const sk=Ind.stoch(c);
+        if(sk<18){bull+=7;reasons.push({t:'Stoch sobrevenda',ty:'b'});}
+        else if(sk>82){bear+=7;reasons.push({t:'Stoch sobrecompra',ty:'s'});}
+
+        // 6. Order Blocks
+        const obs=Ind.orderBlocks(c);
+        if(obs.includes('B')){bull+=9;reasons.push({t:'Order Block Alta',ty:'b'});}
+        if(obs.includes('S')){bear+=9;reasons.push({t:'Order Block Baixa',ty:'s'});}
+
+        // 7. Fair Value Gaps
+        const fv=Ind.fvg(c);
+        if(fv.includes('B')){bull+=6;reasons.push({t:'FVG de Alta',ty:'b'});}
+        if(fv.includes('S')){bear+=6;reasons.push({t:'FVG de Baixa',ty:'s'});}
+
+        // 8. Liquidity Sweep
+        const sw=Ind.sweep(c);
+        if(sw==='B'){bull+=11;reasons.push({t:'Liquidity Sweep ALTA',ty:'b'});}
+        if(sw==='S'){bear+=11;reasons.push({t:'Liquidity Sweep BAIXA',ty:'s'});}
+
+        // 9. Candle Patterns
+        const pats=Ind.patterns(c);
+        if(pats.includes('BE')||pats.includes('BP')){bull+=8;reasons.push({t:'Padrão de Alta',ty:'b'});}
+        if(pats.includes('SE')||pats.includes('SP')){bear+=8;reasons.push({t:'Padrão de Baixa',ty:'s'});}
+
+        // 10. Momentum
+        const mom=Ind.momentum(c);
+        if(mom>0.06){bull+=6;reasons.push({t:'Momentum positivo',ty:'b'});}
+        else if(mom<-0.06){bear+=6;reasons.push({t:'Momentum negativo',ty:'s'});}
+
+        // 11. VWAP Proxy
+        const vwap=Ind.vwapProxy(c);
+        if(d.price>vwap*1.0002){bull+=5;reasons.push({t:'Preço acima VWAP',ty:'b'});}
+        else if(d.price<vwap*0.9998){bear+=5;reasons.push({t:'Preço abaixo VWAP',ty:'s'});}
+
+        // 12. ADX - força da tendência
+        const adxVal = this.adx(c);
+        if(adxVal > 25){
+            if(st.s==='B'){bull+=8;reasons.push({t:`Tendência forte ADX ${adxVal.toFixed(0)}`,ty:'b'});}
+            else if(st.s==='S'){bear+=8;reasons.push({t:`Tendência forte ADX ${adxVal.toFixed(0)}`,ty:'s'});}
+        }
+
+        // 13. Bollinger Bands
+        const bb = this.bollinger(c);
+        if(bb.pb < 0.15){bull+=7;reasons.push({t:'Preço na banda inferior (BB)',ty:'b'});}
+        else if(bb.pb > 0.85){bear+=7;reasons.push({t:'Preço na banda superior (BB)',ty:'s'});}
+        else if(bb.pb > 0.5 && st.s==='B'){bull+=3;}
+        else if(bb.pb < 0.5 && st.s==='S'){bear+=3;}
+
+        // 14. Suporte / Resistência
+        const sr = this.srLevels(c);
+        const distRes = sr.res ? Math.abs(d.price-sr.res)/d.price : 1;
+        const distSup = sr.sup ? Math.abs(d.price-sr.sup)/d.price : 1;
+        if(distSup < 0.0015 && st.s==='B'){bull+=7;reasons.push({t:'Perto de Suporte + estrutura alta',ty:'b'});}
+        if(distRes < 0.0015 && st.s==='S'){bear+=7;reasons.push({t:'Perto de Resistência + estrutura baixa',ty:'s'});}
+
+        // 15. Sequência de 3 velas
+        const seq = this.candleSeq(c);
+        if(seq===1){bull+=6;reasons.push({t:'3 velas de alta seguidas',ty:'b'});}
+        if(seq===-1){bear+=6;reasons.push({t:'3 velas de baixa seguidas',ty:'s'});}
+
+        // 16. ATR Volatility filter (evita sinais em mercado morto)
+        const atrVal = this.atr(c);
+        const atrPct = d.price ? (atrVal/d.price)*100 : 0;
+        if(atrPct < 0.02){
+            // Mercado muito parado - reduz confiança
+            bull = Math.floor(bull * 0.7);
+            bear = Math.floor(bear * 0.7);
+            reasons.push({t:'Baixa volatilidade (ATR)',ty:'n'});
+        }
+
+        // ========== NOVAS ESTRATÉGIAS v6 ==========
+
+        // 17. ★ Uptrend Above MA (tendência de alta forte acima da média)
+        const upMA = Ind.strongUptrendAboveMA(c, d.price);
+        if (upMA.ok) {
+            bull += upMA.score;
+            reasons.push({t:'★ Tendência de ALTA forte acima da média (EMA)',ty:'b'});
+        } else if (upMA.score > 0) {
+            bull += upMA.score;
+        }
+
+        // 18. ★ Above-Avg Bull Power (força de alta acima da média)
+        const bullPow = Ind.aboveAvgBullPower(c, d.price);
+        if (bullPow.ok) {
+            bull += bullPow.score;
+            reasons.push({t:`★ Força de alta acima da média (+${bullPow.distPct.toFixed(2)}%)`,ty:'b'});
+        } else if (bullPow.score > 0) {
+            bull += bullPow.score;
+        }
+
+        // 19. SMA 50 Bias
+        const sma50 = Ind.sma(c,50);
+        if (sma50) {
+            if (d.price > sma50 * 1.001) { bull += 6; reasons.push({t:'Preço acima SMA50',ty:'b'}); }
+            else if (d.price < sma50 * 0.999) { bear += 6; reasons.push({t:'Preço abaixo SMA50',ty:'s'}); }
+        }
+
+        // 20. CCI Momentum
+        const cciVal = Ind.cci(c);
+        if (cciVal > 100) { bull += 7; reasons.push({t:`CCI forte alta (${cciVal.toFixed(0)})`,ty:'b'}); }
+        else if (cciVal < -100) { bear += 7; reasons.push({t:`CCI forte baixa (${cciVal.toFixed(0)})`,ty:'s'}); }
+        else if (cciVal > 50) { bull += 3; }
+        else if (cciVal < -50) { bear += 3; }
+
+        // 21. Williams %R
+        const wr = Ind.williamsR(c);
+        if (wr < -85) { bull += 6; reasons.push({t:'Williams %R sobrevenda',ty:'b'}); }
+        else if (wr > -15) { bear += 6; reasons.push({t:'Williams %R sobrecompra',ty:'s'}); }
+
+        // 22. Range Breakout
+        const brk = this.rangeBreakout(c);
+        if (brk === 1) { bull += 9; reasons.push({t:'Rompimento de range ALTA',ty:'b'}); }
+        else if (brk === -1) { bear += 9; reasons.push({t:'Rompimento de range BAIXA',ty:'s'}); }
+
+        // 23. Body Strength
+        const bodyS = this.bodyStrength(c);
+        if (bodyS === 1) { bull += 5; reasons.push({t:'Corpos de alta dominantes',ty:'b'}); }
+        else if (bodyS === -1) { bear += 5; reasons.push({t:'Corpos de baixa dominantes',ty:'s'}); }
+
+        // 24. Consecutive Above/Below MA
+        const consMA = this.consecutiveAboveMA(c);
+        if (consMA === 1) { bull += 7; reasons.push({t:'5+ fechos consecutivos acima EMA21',ty:'b'}); }
+        else if (consMA === -1) { bear += 7; reasons.push({t:'5+ fechos consecutivos abaixo EMA21',ty:'s'}); }
+
+        // 25. Volatility Expansion
+        const volX = this.volExpansion(c);
+        if (volX === 1 && st.s === 'B') { bull += 5; reasons.push({t:'Expansão de volatilidade + estrutura alta',ty:'b'}); }
+        else if (volX === 1 && st.s === 'S') { bear += 5; reasons.push({t:'Expansão de volatilidade + estrutura baixa',ty:'s'}); }
+
+        // 26. Pivot Bounce
+        const piv = this.pivotBounce(c);
+        if (piv === 1) { bull += 6; reasons.push({t:'Reação em pivot de suporte',ty:'b'}); }
+        else if (piv === -1) { bear += 6; reasons.push({t:'Reação em pivot de resistência',ty:'s'}); }
+
+        // 27. Higher-TF Bias
+        const htf = this.higherTfBias(c);
+        if (htf === 1) { bull += 6; reasons.push({t:'Viés de timeframe maior ALTA',ty:'b'}); }
+        else if (htf === -1) { bear += 6; reasons.push({t:'Viés de timeframe maior BAIXA',ty:'s'}); }
+
+        // 28. RSI Divergence
+        const div = this.rsiDivergence(c);
+        if (div === 1) { bull += 8; reasons.push({t:'Divergência RSI bullish',ty:'b'}); }
+        else if (div === -1) { bear += 8; reasons.push({t:'Divergência RSI bearish',ty:'s'}); }
+
+        // 29. EMA Cross Momentum (8 vs 21 recente)
+        if (e8 && e21) {
+            const e8arr = Ind.emaArr(c, 8);
+            const e21arr = Ind.emaArr(c, 21);
+            if (e8arr.length > 3) {
+                const crossUp = e8arr[e8arr.length-2] <= e21arr[e21arr.length-2] && e8arr[e8arr.length-1] > e21arr[e21arr.length-1];
+                const crossDn = e8arr[e8arr.length-2] >= e21arr[e21arr.length-2] && e8arr[e8arr.length-1] < e21arr[e21arr.length-1];
+                if (crossUp) { bull += 10; reasons.push({t:'Cruzamento EMA 8/21 ALTA',ty:'b'}); }
+                if (crossDn) { bear += 10; reasons.push({t:'Cruzamento EMA 8/21 BAIXA',ty:'s'}); }
+            }
+        }
+
+        // 30. Price Rejection (pinbar forte no extremo)
+        if (c.length >= 3) {
+            const last = c[c.length-1];
+            const body = Math.abs(last.close - last.open);
+            const range = last.high - last.low;
+            if (range > 0) {
+                const lowerWick = Math.min(last.open, last.close) - last.low;
+                const upperWick = last.high - Math.max(last.open, last.close);
+                if (lowerWick > body * 2.5 && lowerWick > range * 0.55) {
+                    bull += 8; reasons.push({t:'Rejeição forte de baixa (pinbar)',ty:'b'});
+                }
+                if (upperWick > body * 2.5 && upperWick > range * 0.55) {
+                    bear += 8; reasons.push({t:'Rejeição forte de alta (pinbar)',ty:'s'});
+                }
+            }
+        }
+
+        // 31. Multi-candle momentum alignment
+        if (c.length >= 6) {
+            let upCloses = 0, downCloses = 0;
+            for (let i = c.length - 5; i < c.length; i++) {
+                if (c[i].close > c[i-1].close) upCloses++;
+                else if (c[i].close < c[i-1].close) downCloses++;
+            }
+            if (upCloses >= 4) { bull += 6; reasons.push({t:'Momentum de 4+ closes de alta',ty:'b'}); }
+            if (downCloses >= 4) { bear += 6; reasons.push({t:'Momentum de 4+ closes de baixa',ty:'s'}); }
+        }
+
+        // 32. Distance from VWAP extreme
+        const vwap2 = Ind.vwapProxy(c);
+        if (vwap2 && d.price) {
+            const distV = ((d.price - vwap2) / vwap2) * 100;
+            if (distV > 0.12 && st.s === 'B') { bull += 5; reasons.push({t:'Preço bem acima VWAP + estrutura alta',ty:'b'}); }
+            if (distV < -0.12 && st.s === 'S') { bear += 5; reasons.push({t:'Preço bem abaixo VWAP + estrutura baixa',ty:'s'}); }
+        }
+
+        // 33. ADX + DI direction (mais preciso)
+        const adxVal2 = this.adx(c);
+        if (adxVal2 > 28 && st.s === 'B' && e8 && e21 && e8 > e21) {
+            bull += 7; reasons.push({t:`ADX ${adxVal2.toFixed(0)} + DI alta forte`,ty:'b'});
+        }
+        if (adxVal2 > 28 && st.s === 'S' && e8 && e21 && e8 < e21) {
+            bear += 7; reasons.push({t:`ADX ${adxVal2.toFixed(0)} + DI baixa forte`,ty:'s'});
+        }
+
+        // 34. Confluência Multi-IA (peso alto) — com confiança
+        let aiBull=0, aiBear=0, aiConfBoost=0;
+        if(d.aiDeep==='BUY') { aiBull++; if(d.aiDeepConf>=0.7) aiConfBoost+=3; }
+        if(d.aiDeep==='SELL') { aiBear++; if(d.aiDeepConf>=0.7) aiConfBoost+=3; }
+        if(d.aiGrok==='BUY') { aiBull++; if(d.aiGrokConf>=0.7) aiConfBoost+=3; }
+        if(d.aiGrok==='SELL') { aiBear++; if(d.aiGrokConf>=0.7) aiConfBoost+=3; }
+        if(aiBull===2){bull+=20+aiConfBoost;reasons.push({t:'DeepSeek + Grok concordam BUY',ty:'b'});}
+        else if(aiBull===1){bull+=9;reasons.push({t:'1 IA recomenda BUY',ty:'b'});}
+        if(aiBear===2){bear+=20+aiConfBoost;reasons.push({t:'DeepSeek + Grok concordam SELL',ty:'s'});}
+        else if(aiBear===1){bear+=9;reasons.push({t:'1 IA recomenda SELL',ty:'s'});}
+
+        // Decisão final — limiar mais exigente para maior taxa de acerto
+        let sig='WAIT', str=Math.max(bull,bear);
+        // Exige confluência forte + margem clara (subiu para 58 e margem 10)
+        if(bull>=58 && bull>=bear+10){sig='BUY'; str=Math.min(Math.round(bull*0.96),99);}
+        else if(bear>=58 && bear>=bull+10){sig='SELL'; str=Math.min(Math.round(bear*0.96),99);}
+        else {
+            str=Math.min(str,58);
+        }
+
+        // Se as 2 IAs concordam e técnico aponta o mesmo → força máxima
+        if(aiBull===2 && sig==='BUY') str=Math.min(str+6,99);
+        if(aiBear===2 && sig==='SELL') str=Math.min(str+6,99);
+
+        // Detecção precisa de mudança de estado (tempo real)
+        const prevSig = d.prevSig || d.sig;
+        const changed = prevSig !== sig;
+        if (changed) {
+            // Regista sempre a mudança no histórico com detalhes
+            recordHistory(asset, sig, d.price, str, reasons[0]?.t || '', d.aiDeep, d.aiGrok);
+            if (sig !== 'WAIT') {
+                notify(asset, sig, d.price, reasons[0]?.t || '', str);
+            } else if (prevSig !== 'WAIT') {
+                // Mudou de BUY/SELL para WAIT
+                notify(asset, 'WAIT', d.price, 'Sinal neutralizado', str);
+            }
+        }
+        d.prevSig = sig;
+        d.sig = sig;
+        d.str = str;
+        d.reasons = reasons;
+
+        // Atualiza badge do gráfico em tempo real se estiver aberto
+        if (S.chartOpen && S.chartAsset === asset) {
+            UI.updateChartBadge(asset);
+            UI.updateChartAIBoxes(asset);
+        }
+    }
+};
+
+/* ========== HISTÓRICO PRECISO EM TEMPO REAL ========== */
+function recordHistory(asset, sig, price, str, reason, aiDeep, aiGrok) {
+    const now = Date.now();
+    // Evita spam: mínimo 4 segundos entre registos do mesmo ativo (exceto mudanças de sinal)
+    if (now - (S.lastHistRecord[asset] || 0) < 4000 && S.hist[asset][0]?.sig === sig) return;
+    S.lastHistRecord[asset] = now;
+    const entry = {
+        t: new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        sig,
+        tf: S.tf,
+        price: typeof price === 'number' ? price : 0,
+        str: str || 0,
+        reason: reason || '',
+        aiDeep: aiDeep || null,
+        aiGrok: aiGrok || null,
+        ts: now
+    };
+    S.hist[asset].unshift(entry);
+    if (S.hist[asset].length > 60) S.hist[asset].pop();
+    // Atualiza UI do histórico se estiver aberto
+    if (document.getElementById('historyModal') && !document.getElementById('historyModal').classList.contains('hidden')) {
+        UI.renderHist();
+    }
+}
+
+/* ========== IA: DEEPSEEK + GROK (TEMPO REAL) ========== */
+const AI = {
+    autoInterval: null,
+    lastRun: 0,
+
+    async callDeepSeek(prompt) {
+        if (!S.deepseekKey) return null;
+        try {
+            const res = await fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${S.deepseekKey}`
+                },
+                body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: `És um trader institucional de forex e ouro (XAUUSD). Analisa os dados técnicos e responde EXATAMENTE neste formato (uma linha só):
+
+SINAL | CONFIANÇA | RAZÃO
+
+Onde:
+- SINAL = BUY ou SELL ou WAIT
+- CONFIANÇA = número de 0 a 100
+- RAZÃO = máximo 8 palavras, objetiva
+
+Exemplos válidos:
+BUY | 78 | EMA alinhada + RSI forte
+SELL | 65 | Rompimento + sobrecompra
+WAIT | 40 | Confluência fraca
+
+Nunca uses outra formatação. Sê direto.` },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 60,
+                    temperature: 0.15
+                })
+            });
+            if (!res.ok) throw new Error('DeepSeek HTTP ' + res.status);
+            const json = await res.json();
+            return json.choices?.[0]?.message?.content?.trim() || null;
+        } catch (e) {
+            console.error('DeepSeek error', e);
+            return null;
+        }
+    },
+
+    async callGrok(prompt) {
+        if (!S.grokKey) return null;
+        try {
+            const res = await fetch('https://api.x.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${S.grokKey}`
+                },
+                body: JSON.stringify({
+                    model: 'grok-3-mini',
+                    messages: [
+                        { role: 'system', content: `És um trader institucional de forex e ouro (XAUUSD). Analisa os dados técnicos e responde EXATAMENTE neste formato (uma linha só):
+
+SINAL | CONFIANÇA | RAZÃO
+
+Onde:
+- SINAL = BUY ou SELL ou WAIT
+- CONFIANÇA = número de 0 a 100
+- RAZÃO = máximo 8 palavras, objetiva
+
+Exemplos válidos:
+BUY | 78 | EMA alinhada + RSI forte
+SELL | 65 | Rompimento + sobrecompra
+WAIT | 40 | Confluência fraca
+
+Nunca uses outra formatação. Sê direto.` },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 60,
+                    temperature: 0.15
+                })
+            });
+            if (!res.ok) throw new Error('Grok HTTP ' + res.status);
+            const json = await res.json();
+            return json.choices?.[0]?.message?.content?.trim() || null;
+        } catch (e) {
+            console.error('Grok error', e);
+            return null;
+        }
+    },
+
+    parseSignal(text) {
+        if (!text) return { sig: null, reason: '', conf: 0 };
+        const clean = text.replace(/\n/g, ' ').trim();
+        const upper = clean.toUpperCase();
+
+        // Formato preferido: SINAL | CONFIANÇA | RAZÃO
+        let sig = null, conf = 50, reason = '';
+
+        // Tenta parse por pipes
+        if (clean.includes('|')) {
+            const parts = clean.split('|').map(p => p.trim());
+            const sigPart = parts[0].toUpperCase();
+            if (sigPart.includes('BUY') || sigPart.includes('COMPRA')) sig = 'BUY';
+            else if (sigPart.includes('SELL') || sigPart.includes('VENDA')) sig = 'SELL';
+            else if (sigPart.includes('WAIT') || sigPart.includes('AGUARD') || sigPart.includes('NEUTRO')) sig = 'WAIT';
+
+            if (parts[1]) {
+                const num = parseInt(parts[1].replace(/[^0-9]/g, ''), 10);
+                if (!isNaN(num)) conf = Math.min(100, Math.max(0, num));
+            }
+            reason = parts.slice(2).join(' ').trim() || parts[1] || '';
+        } else {
+            // Fallback robusto para formatos antigos ou livres
+            if (/\bBUY\b|\bCOMPRA\b|\bLONG\b|\bALTA\b/i.test(upper)) sig = 'BUY';
+            else if (/\bSELL\b|\bVENDA\b|\bSHORT\b|\bBAIXA\b/i.test(upper)) sig = 'SELL';
+            else if (/\bWAIT\b|\bAGUARD\b|\bNEUTRO\b|\bHOLD\b/i.test(upper)) sig = 'WAIT';
+
+            // Extrai confiança se existir (ex: 75%, conf 80, etc)
+            const confMatch = clean.match(/(?:conf(?:iança)?|confidence|score)?\s*[:=]?\s*(\d{1,3})\s*%?/i);
+            if (confMatch) conf = Math.min(100, Math.max(0, parseInt(confMatch[1], 10)));
+
+            // Razão: tudo depois do primeiro separador ou a frase inteira limpa
+            const afterDash = clean.split(/[-–—:|]/).slice(1).join(' ').trim();
+            reason = afterDash || clean.replace(/^(BUY|SELL|WAIT|COMPRA|VENDA|AGUARDAR)\s*/i, '').trim();
+        }
+
+        // Limita razão
+        if (reason.length > 60) reason = reason.slice(0, 57) + '...';
+        // Remove o próprio sinal da razão se ficou lá
+        reason = reason.replace(/^(BUY|SELL|WAIT)\s*[|\-:]?\s*/i, '').trim();
+
+        return { sig, reason, conf: conf / 100 };
+    },
+
+    buildPrompt(asset) {
+        const d = S.data[asset];
+        const c = d.candles[S.tf] || [];
+        if (c.length < 5) return null;
+        const dec = asset === 'EURUSD' ? 5 : 2;
+        const last5 = c.slice(-5).map(x => x.close.toFixed(dec)).join(' → ');
+        const high = (d.high || 0).toFixed(dec);
+        const low = (d.low || 0).toFixed(dec);
+        const reasons = d.reasons.slice(0, 6).map(r => r.t).join(' | ');
+        const e21 = Ind.ema(c, 21);
+        const rsi = Ind.rsi(c);
+        const adx = Engine.adx(c);
+        const st = Ind.structure(c);
+        return `ANÁLISE TÉCNICA EM TEMPO REAL (responde no formato SINAL | CONFIANÇA | RAZÃO):
+Ativo: ${asset === 'EURUSD' ? 'EUR/USD' : 'XAU/USD (Ouro)'}
+Timeframe: ${S.tf}
+Preço: ${d.price.toFixed(dec)} | Var: ${d.chg.toFixed(2)}% | Máx/Mín: ${high}/${low}
+Últimos 5 closes: ${last5}
+Estrutura: ${st.s === 'B' ? 'BULLISH' : st.s === 'S' ? 'BEARISH' : 'NEUTRA'} ${st.bos ? '+ BOS' : ''}
+EMA21: ${e21 ? e21.toFixed(dec) : 'n/a'} | RSI: ${rsi.toFixed(0)} | ADX: ${adx.toFixed(0)}
+Sinal técnico atual: ${d.sig} (${d.str}%)
+Principais confluências: ${reasons || 'nenhuma forte'}
+
+Recomendação de trading AGORA?`;
+    },
+
+    updateAIBox(asset, provider, result) {
+        const el = document.getElementById(provider === 'deep' ? `aiDeepTxt-${asset}` : `aiGrokTxt-${asset}`);
+        if (!el) return;
+        if (!result || !result.sig) {
+            el.innerHTML = '<span class="text-gray-500">Sem resposta</span>';
+            return;
+        }
+        const confPct = Math.round((result.conf || 0) * 100);
+        const confStr = confPct > 0 ? ` <span class="text-[9px] opacity-70">${confPct}%</span>` : '';
+        if (result.sig === 'BUY') {
+            el.innerHTML = `<span class="text-emerald-400 font-bold">🟢 BUY${confStr}</span><div class="text-[10px] text-gray-400 mt-0.5 truncate">${result.reason || ''}</div>`;
+        } else if (result.sig === 'SELL') {
+            el.innerHTML = `<span class="text-red-400 font-bold">🔴 SELL${confStr}</span><div class="text-[10px] text-gray-400 mt-0.5 truncate">${result.reason || ''}</div>`;
+        } else {
+            el.innerHTML = `<span class="text-yellow-400">🟡 WAIT${confStr}</span><div class="text-[10px] text-gray-400 mt-0.5 truncate">${result.reason || ''}</div>`;
+        }
+    },
+
+    async analyzeAsset(asset) {
+        const prompt = this.buildPrompt(asset);
+        if (!prompt) return;
+
+        // Mostrar loading
+        if (S.deepseekKey) document.getElementById(`aiDeepTxt-${asset}`).innerHTML = '<span class="text-purple-400 animate-pulse">A analisar...</span>';
+        if (S.grokKey) document.getElementById(`aiGrokTxt-${asset}`).innerHTML = '<span class="text-sky-400 animate-pulse">A analisar...</span>';
+
+        const [deepRes, grokRes] = await Promise.all([
+            this.callDeepSeek(prompt),
+            this.callGrok(prompt)
+        ]);
+
+        const deep = this.parseSignal(deepRes);
+        const grok = this.parseSignal(grokRes);
+
+        S.data[asset].aiDeep = deep.sig;
+        S.data[asset].aiGrok = grok.sig;
+        S.data[asset].aiDeepConf = deep.conf || 0;
+        S.data[asset].aiGrokConf = grok.conf || 0;
+
+        this.updateAIBox(asset, 'deep', deep);
+        this.updateAIBox(asset, 'grok', grok);
+
+        // Re-analisar técnico com bónus da IA
+        Engine.analyze(asset);
+        UI.render(asset);
+    },
+
+    async runAll() {
+        if (S.aiRunning) return;
+        if (!S.deepseekKey && !S.grokKey) return;
+
+        S.aiRunning = true;
+        this.lastRun = Date.now();
+        const btn = document.getElementById('aiBtn');
+        if (btn) {
+            btn.classList.add('ai-loading');
+            btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> IA a analisar...';
+            lucide.createIcons();
+        }
+
+        try {
+            await Promise.all([
+                this.analyzeAsset('EURUSD'),
+                this.analyzeAsset('XAUUSD')
+            ]);
+        } catch (e) {
+            console.error('AI run error', e);
+        }
+
+        S.aiRunning = false;
+        if (btn) {
+            btn.classList.remove('ai-loading');
+            btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Analisar com IA';
+            lucide.createIcons();
+        }
+    },
+
+    // Inicia análise automática em tempo real (a cada 20 segundos)
+    startAuto() {
+        this.stopAuto();
+        if (!S.deepseekKey && !S.grokKey) return;
+
+        // Primeira análise após 2 segundos
+        setTimeout(() => this.runAll(), 2000);
+
+        // Depois a cada 20 segundos
+        this.autoInterval = setInterval(() => {
+            if (!S.aiRunning && (S.deepseekKey || S.grokKey)) {
+                this.runAll();
+            }
+        }, 20000);
+    },
+
+    stopAuto() {
+        if (this.autoInterval) {
+            clearInterval(this.autoInterval);
+            this.autoInterval = null;
+        }
+    }
+};
+
+async function runAIAnalysis() {
+    if (!S.deepseekKey && !S.grokKey) {
+        alert('Configura pelo menos uma API Key (DeepSeek ou Grok) nas configurações.');
+        toggleConfig();
+        return;
+    }
+    await AI.runAll();
+}
+
+/* ========== DATA ========== */
+const Data = {
+    poll: null, demo: null, histTimer: null,
+    init() {
+        this.connect();
+        // Histórico e estado em tempo real mais frequente
+        this.histTimer = setInterval(() => this.tickHist(), 6000);
+    },
+    connect() {
+        clearInterval(this.poll); clearInterval(this.demo);
+        if (S.feed === 'DEMO') this.startDemo();
+        else if (S.feed === 'TWELVE_DATA') this.startTwelve();
+    },
+    startDemo() {
+        S.connected = true;
+        setConn(true, 'Simulação');
+        ['EURUSD','XAUUSD'].forEach(a => this.genHist(a, a==='EURUSD'?1.085:2650, a==='EURUSD'?0.0001:0.9));
+        this.demo = setInterval(() => {
+            this.tick('EURUSD', 0.00006);
+            this.tick('XAUUSD', 0.45);
+        }, 1500);
+    },
+    genHist(asset, base, vol) {
+        TFS.forEach(tf => {
+            const h=[]; let cur=base+(Math.random()-0.5)*vol*12;
+            const bars=80, step={M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400}[tf];
+            const now=Math.floor(Date.now()/1000);
+            for(let i=0;i<bars;i++){
+                const o=cur, cl=o+(Math.random()-0.47)*vol;
+                const hi=Math.max(o,cl)+Math.random()*vol*0.45;
+                const lo=Math.min(o,cl)-Math.random()*vol*0.45;
+                h.push({time:now-(bars-i)*step, open:o, high:hi, low:lo, close:cl});
+                cur=cl;
+            }
+            S.data[asset].candles[tf]=h;
+        });
+        const act=S.data[asset].candles[S.tf];
+        const last=act[act.length-1];
+        S.data[asset].price=last.close;
+        S.data[asset].open=act[0].open;
+        S.data[asset].high=Math.max(...act.map(x=>x.high));
+        S.data[asset].low=Math.min(...act.map(x=>x.low));
+        S.data[asset].chg=((last.close-act[0].open)/act[0].open)*100;
+        S.data[asset].upd=new Date();
+        Engine.analyze(asset);
+        UI.render(asset);
+    },
+    tick(asset, vol) {
+        const d=S.data[asset];
+        const c=d.candles[S.tf];
+        if(!c?.length) return;
+        const last=c[c.length-1];
+        const np=+(d.price+(Math.random()-0.495)*vol).toFixed(asset==='EURUSD'?5:2);
+        d.price=np;
+        if(np>d.high)d.high=np;
+        if(np<d.low)d.low=np;
+        d.chg=((np-d.open)/d.open)*100;
+        d.upd=new Date();
+        last.close=np;
+        if(np>last.high)last.high=np;
+        if(np<last.low)last.low=np;
+        Engine.analyze(asset);
+        UI.render(asset);
+        if(S.chartOpen&&S.chartAsset===asset) UI.updateChartBadge(asset);
+    },
+    async startTwelve() {
+        if(!S.key){alert('Insira a API Key Twelve Data'); return;}
+        setConn(true,'Twelve Data...');
+        await this.fetch();
+        this.poll=setInterval(()=>this.fetch(),20000);
+    },
+    async fetch() {
+        if(!S.key) return;
+        const interval=TF_MAP[S.tf]||'15min';
+        for(const asset of ['EURUSD','XAUUSD']){
+            try{
+                const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(SYM[asset])}&interval=${interval}&outputsize=80&apikey=${S.key}`;
+                const r=await fetch(url);
+                const j=await r.json();
+                if(j.status==='error'){setConn(false,j.message||'Erro API'); continue;}
+                if(j.values?.length){
+                    const candles=j.values.reverse().map(v=>({
+                        time:Math.floor(new Date(v.datetime).getTime()/1000),
+                        open:+v.open, high:+v.high, low:+v.low, close:+v.close
+                    }));
+                    S.data[asset].candles[S.tf]=candles;
+                    const last=candles[candles.length-1], first=candles[0];
+                    S.data[asset].price=last.close;
+                    S.data[asset].open=first.open;
+                    S.data[asset].high=Math.max(...candles.map(x=>x.high));
+                    S.data[asset].low=Math.min(...candles.map(x=>x.low));
+                    S.data[asset].chg=((last.close-first.open)/first.open)*100;
+                    S.data[asset].upd=new Date();
+                    Engine.analyze(asset);
+                    UI.render(asset);
+                    document.getElementById(`src-${asset}`).innerText='Twelve Data';
+                    if(S.chartOpen&&S.chartAsset===asset) UI.updateChartBadge(asset);
+                }
+            }catch(e){console.error(e);}
+        }
+        S.connected=true;
+        setConn(true,`Twelve • ${S.tf}`);
+    },
+    tickHist() {
+        ['EURUSD','XAUUSD'].forEach(asset=>{
+            const d = S.data[asset];
+            if (!d.upd) return;
+            // Snapshot periódico só se o sinal for ativo (BUY/SELL) ou a cada ~18s
+            const last = S.hist[asset][0];
+            const now = Date.now();
+            const shouldSnap = !last || (now - (last.ts || 0) > 18000) || (d.sig !== 'WAIT' && last.sig !== d.sig);
+            if (shouldSnap) {
+                recordHistory(asset, d.sig, d.price, d.str, d.reasons[0]?.t || '', d.aiDeep, d.aiGrok);
+            }
+            // Atualiza sessão live em tempo real
+            if (S.sessionOpen) UI.updateSession(asset);
+            // Atualiza status live no gráfico se aberto
+            if (S.chartOpen && S.chartAsset === asset) {
+                UI.updateChartBadge(asset);
+                UI.updateChartAIBoxes(asset);
+            }
+        });
+    }
+};
+
+/* ========== UI ========== */
+const UI = {
+    init() {
+        this.renderTFs();
+        calcRisk();
+        if(S.key) document.getElementById('apiKey').value=S.key;
+        if(S.deepseekKey) document.getElementById('deepseekKey').value=S.deepseekKey;
+        if(S.grokKey) document.getElementById('grokKey').value=S.grokKey;
+        document.getElementById('feedType').value=S.feed;
+        toggleFeedUI();
+        updateDeepseekStatus();
+        updateGrokStatus();
+        setInterval(()=>{
+            if(S.sessionOpen){
+                S.countdown--;
+                if(S.countdown<=0) S.countdown=15;
+                document.getElementById('sessionTimer').innerText=S.countdown+'s';
+            }
+        },1000);
+    },
+    renderTFs() {
+        const el=document.getElementById('tfBtns'); el.innerHTML='';
+        TFS.forEach(tf=>{
+            const b=document.createElement('button');
+            b.className=`px-2 py-1 text-[11px] font-semibold rounded-lg border transition ${tf===S.tf?'bg-accent text-white border-accent':'bg-darkBg text-gray-500 border-cardBorder hover:border-gray-600'}`;
+            b.innerText=tf; b.onclick=()=>this.switchTF(tf); el.appendChild(b);
+        });
+    },
+    async switchTF(tf) {
+        S.tf=tf; this.renderTFs();
+        document.querySelectorAll('.active-tf').forEach(e=>e.innerText=tf);
+        if(S.feed==='TWELVE_DATA') await Data.fetch();
+        else ['EURUSD','XAUUSD'].forEach(a=>{Engine.analyze(a); this.render(a);});
+        if(S.chartOpen) loadTVChart(S.chartAsset);
+    },
+    render(asset) {
+        const d=S.data[asset];
+        document.getElementById(`price-${asset}`).innerText=asset==='EURUSD'?(d.price||0).toFixed(5):(d.price||0).toFixed(2);
+        const pos=d.chg>=0;
+        const ch=document.getElementById(`chg-${asset}`);
+        ch.innerText=`${pos?'+':''}${d.chg.toFixed(2)}%`;
+        ch.className=pos?'text-bull font-semibold':'text-bear font-semibold';
+        document.getElementById(`range-${asset}`).innerText=`${(d.high||0).toFixed(asset==='EURUSD'?5:2)} / ${(d.low||0).toFixed(asset==='EURUSD'?5:2)}`;
+        document.getElementById(`time-${asset}`).innerText=d.upd?d.upd.toLocaleTimeString():'—';
+        document.getElementById(`strVal-${asset}`).innerText=d.str+'%';
+        const bar=document.getElementById(`strBar-${asset}`);
+        bar.style.width=d.str+'%';
+
+        const badge=document.getElementById(`badge-${asset}`);
+        const adv=document.getElementById(`advice-${asset}`);
+        const advT=document.getElementById(`adviceTxt-${asset}`);
+        const advS=document.getElementById(`adviceSub-${asset}`);
+        const btn=document.getElementById(`chartBtn-${asset}`);
+        const btnT=document.getElementById(`chartBtnTxt-${asset}`);
+
+        if(d.sig==='BUY'){
+            badge.className='px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+            badge.innerText='🟢 BUY';
+            bar.className='h-2 rounded-full bg-emerald-500 transition-all';
+            adv.className='p-3.5 rounded-xl border-2 border-emerald-500/50 bg-emerald-950/25 text-center pulse-bull';
+            advT.className='text-base font-bold text-emerald-400';
+            advT.innerText='🟢 BOM PARA COMPRAR';
+            advS.innerText=`Força ${d.str}% • Confluência de alta`;
+            btn.className='w-full py-2.5 rounded-xl border-2 border-emerald-500/50 bg-emerald-950/25 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2 transition-all hover:bg-emerald-950/40 glow-bull';
+            btnT.innerText='Ver Gráfico • 🟢 COMPRANDO';
+        } else if(d.sig==='SELL'){
+            badge.className='px-2.5 py-1 rounded text-[11px] font-bold bg-red-500/15 border border-red-500/40 text-red-400';
+            badge.innerText='🔴 SELL';
+            bar.className='h-2 rounded-full bg-red-500 transition-all';
+            adv.className='p-3.5 rounded-xl border-2 border-red-500/50 bg-red-950/25 text-center pulse-bear';
+            advT.className='text-base font-bold text-red-400';
+            advT.innerText='🔴 BOM PARA VENDER';
+            advS.innerText=`Força ${d.str}% • Confluência de baixa`;
+            btn.className='w-full py-2.5 rounded-xl border-2 border-red-500/50 bg-red-950/25 text-red-400 font-bold text-sm flex items-center justify-center gap-2 transition-all hover:bg-red-950/40 glow-bear';
+            btnT.innerText='Ver Gráfico • 🔴 VENDENDO';
+        } else {
+            badge.className='px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-500/10 border border-yellow-500/30 text-yellow-400';
+            badge.innerText='🟡 WAIT';
+            bar.className='h-2 rounded-full bg-yellow-500 transition-all';
+            adv.className='p-3.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center';
+            advT.className='text-base font-bold text-yellow-400';
+            advT.innerText='🟡 AGUARDAR';
+            advS.innerText=`Força ${d.str}% • Sem confluência forte`;
+            btn.className='w-full py-2.5 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-yellow-400 font-bold text-sm flex items-center justify-center gap-2 transition-all hover:bg-yellow-950/40';
+            btnT.innerText='Ver Gráfico • 🟡 AGUARDAR';
+        }
+
+        const reas=document.getElementById(`reasons-${asset}`);
+        reas.innerHTML='';
+        d.reasons.slice(0,4).forEach(r=>{
+            const col=r.ty==='b'?'text-emerald-400':r.ty==='s'?'text-red-400':'text-gray-500';
+            const div=document.createElement('div');
+            div.className=col; div.innerText='• '+r.t;
+            reas.appendChild(div);
+        });
+    },
+    updateChartBadge(asset) {
+        const d = S.data[asset];
+        const badge = document.getElementById('chartModalBadge');
+        const advice = document.getElementById('chartModalAdvice');
+        const live = document.getElementById('chartLiveStatus');
+        if (!badge || !advice) return;
+        if (d.sig === 'BUY') {
+            badge.className = 'px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-400';
+            badge.innerText = '🟢 COMPRANDO';
+            advice.className = 'text-sm font-bold text-emerald-400';
+            advice.innerText = `🟢 BOM PARA COMPRAR — Força ${d.str}%`;
+            if (live) live.innerHTML = `<span class="text-emerald-400 font-semibold">Live: COMPRANDO ${d.str}%</span>`;
+        } else if (d.sig === 'SELL') {
+            badge.className = 'px-2.5 py-1 rounded text-[11px] font-bold bg-red-500/15 border border-red-500/40 text-red-400';
+            badge.innerText = '🔴 VENDENDO';
+            advice.className = 'text-sm font-bold text-red-400';
+            advice.innerText = `🔴 BOM PARA VENDER — Força ${d.str}%`;
+            if (live) live.innerHTML = `<span class="text-red-400 font-semibold">Live: VENDENDO ${d.str}%</span>`;
+        } else {
+            badge.className = 'px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-500/10 border border-yellow-500/30 text-yellow-400';
+            badge.innerText = '🟡 AGUARDAR';
+            advice.className = 'text-sm font-bold text-yellow-400';
+            advice.innerText = `🟡 AGUARDAR — Força ${d.str}%`;
+            if (live) live.innerHTML = `<span class="text-yellow-400">Live: AGUARDAR ${d.str}%</span>`;
+        }
+    },
+    updateChartAIBoxes(asset) {
+        const d = S.data[asset];
+        const deepEl = document.getElementById('chartAIDeep');
+        const grokEl = document.getElementById('chartAIGrok');
+        if (!deepEl || !grokEl) return;
+        const fmt = (sig, conf, name) => {
+            if (!sig) return `${name}: —`;
+            const c = conf ? ` ${Math.round(conf * 100)}%` : '';
+            if (sig === 'BUY') return `<span class="text-emerald-400 font-semibold">${name}: 🟢 BUY${c}</span>`;
+            if (sig === 'SELL') return `<span class="text-red-400 font-semibold">${name}: 🔴 SELL${c}</span>`;
+            return `<span class="text-yellow-400">${name}: 🟡 WAIT${c}</span>`;
+        };
+        deepEl.innerHTML = fmt(d.aiDeep, d.aiDeepConf, 'DeepSeek');
+        grokEl.innerHTML = fmt(d.aiGrok, d.aiGrokConf, 'Grok');
+    },
+    updateSession(asset) {
+        const d = S.data[asset];
+        const box = document.getElementById(`sessBox-${asset}`);
+        const txt = document.getElementById(`sessTxt-${asset}`);
+        const sub = document.getElementById(`sessSub-${asset}`);
+        if (!box) return;
+        if (d.sig === 'BUY') {
+            box.className = 'p-4 rounded-xl border-2 border-emerald-500/60 bg-emerald-950/30 text-center pulse-bull';
+            txt.className = 'text-xl font-black text-emerald-400'; txt.innerText = '🟢 COMPRAR';
+            sub.innerText = `Força ${d.str}%`;
+        } else if (d.sig === 'SELL') {
+            box.className = 'p-4 rounded-xl border-2 border-red-500/60 bg-red-950/30 text-center pulse-bear';
+            txt.className = 'text-xl font-black text-red-400'; txt.innerText = '🔴 VENDER';
+            sub.innerText = `Força ${d.str}%`;
+        } else {
+            box.className = 'p-4 rounded-xl border-2 border-yellow-500/40 bg-yellow-950/20 text-center';
+            txt.className = 'text-xl font-black text-yellow-400'; txt.innerText = '🟡 AGUARDAR';
+            sub.innerText = `Força ${d.str}%`;
+        }
+    },
+    renderHist() {
+        const assets = S.histView === 'ALL' ? ['EURUSD', 'XAUUSD'] : [S.histView];
+        ['EURUSD', 'XAUUSD'].forEach(asset => {
+            const el = document.getElementById(`hist-${asset}`);
+            if (!el) return;
+            const list = S.hist[asset];
+            if (!list.length) {
+                el.innerHTML = '<div class="text-gray-600 italic">Sem registos ainda</div>';
+                return;
+            }
+            el.innerHTML = list.slice(0, 40).map(e => {
+                const col = e.sig === 'BUY' ? 'text-emerald-400' : e.sig === 'SELL' ? 'text-red-400' : 'text-yellow-400';
+                const pr = typeof e.price === 'number' ? (asset === 'EURUSD' ? e.price.toFixed(5) : e.price.toFixed(2)) : e.price;
+                const ai = (e.aiDeep || e.aiGrok) ? ` <span class="text-[9px] opacity-60">[D:${e.aiDeep || '-'} G:${e.aiGrok || '-'}]</span>` : '';
+                const reason = e.reason ? `<div class="text-[9px] text-gray-500 truncate">${e.reason}</div>` : '';
+                return `<div class="py-1.5 border-b border-cardBorder/30 ${col}">
+                    <div class="flex justify-between gap-2"><span>${e.t}</span><span class="font-bold">${e.sig}</span><span>${pr}</span><span>${e.str}%</span></div>
+                    ${reason}${ai}
+                </div>`;
+            }).join('');
+        });
+        // Ajusta visibilidade das colunas
+        const colEUR = document.getElementById('histColEUR');
+        const colXAU = document.getElementById('histColXAU');
+        const grid = document.getElementById('histGrid');
+        if (S.histView === 'EURUSD') {
+            if (colEUR) colEUR.classList.remove('hidden');
+            if (colXAU) colXAU.classList.add('hidden');
+            if (grid) grid.className = 'grid grid-cols-1 gap-0 flex-1 overflow-hidden';
+        } else if (S.histView === 'XAUUSD') {
+            if (colEUR) colEUR.classList.add('hidden');
+            if (colXAU) colXAU.classList.remove('hidden');
+            if (grid) grid.className = 'grid grid-cols-1 gap-0 flex-1 overflow-hidden';
+        } else {
+            if (colEUR) colEUR.classList.remove('hidden');
+            if (colXAU) colXAU.classList.remove('hidden');
+            if (grid) grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-0 flex-1 overflow-hidden';
+        }
+    }
+};
+
+/* ========== CHART ========== */
+let tvWidget = null;
+function openChartModal(asset) {
+    S.chartOpen = true;
+    S.chartAsset = asset;
+    document.getElementById('chartModal').classList.remove('hidden');
+    document.getElementById('chartModalTitle').innerText = `Gráfico ${asset === 'EURUSD' ? 'EUR/USD' : 'XAU/USD'}`;
+    const histBtnTxt = document.getElementById('chartHistBtnTxt');
+    if (histBtnTxt) histBtnTxt.innerText = asset === 'EURUSD' ? 'Hist. EUR' : 'Hist. XAU';
+    UI.updateChartBadge(asset);
+    UI.updateChartAIBoxes(asset);
+    loadTVChart(asset);
+    lucide.createIcons();
+}
+function closeChartModal() {
+    S.chartOpen = false;
+    document.getElementById('chartModal').classList.add('hidden');
+    document.getElementById('tvChartContainer').innerHTML = '';
+    tvWidget = null;
+}
+function loadTVChart(asset) {
+    const map = { M1: '1', M5: '5', M15: '15', M30: '30', H1: '60', H4: '240', D1: 'D' };
+    document.getElementById('tvChartContainer').innerHTML = '';
+    if (typeof TradingView !== 'undefined') {
+        tvWidget = new TradingView.widget({
+            width: '100%', height: '100%', symbol: TV_SYM[asset],
+            interval: map[S.tf] || '15', timezone: 'Etc/UTC', theme: 'dark', style: '1', locale: 'pt',
+            toolbar_bg: '#070B14', enable_publishing: false, allow_symbol_change: false,
+            container_id: 'tvChartContainer', hide_side_toolbar: false,
+            studies: ['STD;RSI', 'STD;MACD', 'STD;EMA']
+        });
+    }
+}
+
+/* ========== HISTÓRICO POR ATIVO ========== */
+function openHistoryModal() {
+    S.histView = 'ALL';
+    switchHistView('ALL');
+    document.getElementById('historyModal').classList.remove('hidden');
+    UI.renderHist();
+    lucide.createIcons();
+}
+function openAssetHistory() {
+    const asset = S.chartAsset || 'EURUSD';
+    S.histView = asset;
+    switchHistView(asset);
+    document.getElementById('historyModal').classList.remove('hidden');
+    UI.renderHist();
+    lucide.createIcons();
+}
+function switchHistView(view) {
+    S.histView = view;
+    const btnAll = document.getElementById('histBtnAll');
+    const btnEUR = document.getElementById('histBtnEUR');
+    const btnXAU = document.getElementById('histBtnXAU');
+    const title = document.getElementById('historyModalTitle');
+    [btnAll, btnEUR, btnXAU].forEach(b => {
+        if (b) {
+            b.className = 'px-2 py-1 text-[10px] rounded bg-gray-800 text-gray-400 border border-gray-700';
+        }
+    });
+    if (view === 'ALL' && btnAll) {
+        btnAll.className = 'px-2 py-1 text-[10px] rounded bg-accent/20 text-accent border border-accent/40 font-semibold';
+        if (title) title.innerHTML = '<i data-lucide="history" class="w-4 h-4 text-accent"></i> Históricos';
+    } else if (view === 'EURUSD' && btnEUR) {
+        btnEUR.className = 'px-2 py-1 text-[10px] rounded bg-blue-500/20 text-blue-400 border border-blue-500/40 font-semibold';
+        if (title) title.innerHTML = '<i data-lucide="history" class="w-4 h-4 text-blue-400"></i> Histórico EUR/USD';
+    } else if (view === 'XAUUSD' && btnXAU) {
+        btnXAU.className = 'px-2 py-1 text-[10px] rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold';
+        if (title) title.innerHTML = '<i data-lucide="history" class="w-4 h-4 text-amber-400"></i> Histórico XAU/USD';
+    }
+    UI.renderHist();
+    lucide.createIcons();
+}
+
+/* ========== CÂMERA → ENVIAR GRÁFICO PARA IAs ========== */
+async function sendChartToAI() {
+    const asset = S.chartAsset;
+    if (!asset) return;
+    if (!S.deepseekKey && !S.grokKey) {
+        alert('Configura pelo menos uma API Key (DeepSeek ou Grok) nas configurações para usar a análise por câmara.');
+        toggleConfig();
+        return;
+    }
+    const btn = document.getElementById('cameraBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> <span class="text-[11px]">A enviar...</span>';
+        lucide.createIcons();
+    }
+    // Mostra loading nas caixas do gráfico
+    const deepEl = document.getElementById('chartAIDeep');
+    const grokEl = document.getElementById('chartAIGrok');
+    if (deepEl) deepEl.innerHTML = '<span class="text-purple-400 animate-pulse">DeepSeek a analisar gráfico...</span>';
+    if (grokEl) grokEl.innerHTML = '<span class="text-sky-400 animate-pulse">Grok a analisar gráfico...</span>';
+
+    // Constrói prompt rico focado no gráfico atual
+    const d = S.data[asset];
+    const c = d.candles[S.tf] || [];
+    const dec = asset === 'EURUSD' ? 5 : 2;
+    const last8 = c.slice(-8).map(x => `${x.close.toFixed(dec)} (${x.close > x.open ? '▲' : '▼'})`).join(' → ');
+    const reasons = d.reasons.slice(0, 8).map(r => r.t).join(' | ');
+    const e8 = Ind.ema(c, 8), e21 = Ind.ema(c, 21), e55 = Ind.ema(c, 55);
+    const rsi = Ind.rsi(c);
+    const adx = Engine.adx(c);
+    const st = Ind.structure(c);
+    const prompt = `ANÁLISE DE GRÁFICO EM TEMPO REAL (responde no formato SINAL | CONFIANÇA | RAZÃO):
+Ativo: ${asset === 'EURUSD' ? 'EUR/USD' : 'XAU/USD (Ouro)'}
+Timeframe: ${S.tf}
+Preço atual: ${d.price.toFixed(dec)}
+Variação: ${d.chg.toFixed(2)}%
+Últimos 8 candles: ${last8}
+Estrutura de mercado: ${st.s === 'B' ? 'BULLISH (HH/HL)' : st.s === 'S' ? 'BEARISH (LH/LL)' : 'NEUTRA'} ${st.bos ? '+ Break of Structure' : ''}
+EMAs: 8=${e8 ? e8.toFixed(dec) : 'n/a'} | 21=${e21 ? e21.toFixed(dec) : 'n/a'} | 55=${e55 ? e55.toFixed(dec) : 'n/a'}
+RSI: ${rsi.toFixed(0)} | ADX: ${adx.toFixed(0)}
+Sinal técnico atual: ${d.sig} (força ${d.str}%)
+Confluências técnicas ativas: ${reasons || 'nenhuma forte'}
+
+Com base neste snapshot do gráfico, está BOM PARA COMPRAR, BOM PARA VENDER ou AGUARDAR AGORA?
+Sê objetivo e usa o formato SINAL | CONFIANÇA | RAZÃO.`;
+
+    try {
+        const [deepRes, grokRes] = await Promise.all([
+            AI.callDeepSeek(prompt),
+            AI.callGrok(prompt)
+        ]);
+        const deep = AI.parseSignal(deepRes);
+        const grok = AI.parseSignal(grokRes);
+
+        S.data[asset].aiDeep = deep.sig;
+        S.data[asset].aiGrok = grok.sig;
+        S.data[asset].aiDeepConf = deep.conf || 0;
+        S.data[asset].aiGrokConf = grok.conf || 0;
+
+        // Atualiza caixas do gráfico e dos cards principais
+        UI.updateChartAIBoxes(asset);
+        AI.updateAIBox(asset, 'deep', deep);
+        AI.updateAIBox(asset, 'grok', grok);
+
+        // Re-analisa motor técnico com o novo input das IAs
+        Engine.analyze(asset);
+        UI.render(asset);
+        UI.updateChartBadge(asset);
+
+        // Feedback visual forte
+        const advice = document.getElementById('chartModalAdvice');
+        if (advice) {
+            const bothBuy = deep.sig === 'BUY' && grok.sig === 'BUY';
+            const bothSell = deep.sig === 'SELL' && grok.sig === 'SELL';
+            if (bothBuy) {
+                advice.innerHTML = `🟢 <span class="text-emerald-400">IAs CONCORDAM: BOM PARA COMPRAR</span> (D:${Math.round((deep.conf||0)*100)}% G:${Math.round((grok.conf||0)*100)}%)`;
+            } else if (bothSell) {
+                advice.innerHTML = `🔴 <span class="text-red-400">IAs CONCORDAM: BOM PARA VENDER</span> (D:${Math.round((deep.conf||0)*100)}% G:${Math.round((grok.conf||0)*100)}%)`;
+            } else {
+                advice.innerHTML = `Análise de gráfico enviada → DeepSeek: ${deep.sig || '—'} | Grok: ${grok.sig || '—'}`;
+            }
+        }
+    } catch (e) {
+        console.error('sendChartToAI error', e);
+        if (deepEl) deepEl.innerHTML = '<span class="text-red-400">Erro na análise</span>';
+        if (grokEl) grokEl.innerHTML = '<span class="text-red-400">Erro na análise</span>';
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="camera" class="w-4 h-4"></i> <span class="text-[11px] font-semibold hidden sm:inline">IA Chart</span>';
+        lucide.createIcons();
+    }
+}
+
+/* ========== HELPERS ========== */
+function openSessionModal() {
+    S.sessionOpen = true;
+    S.countdown = 15;
+    document.getElementById('sessionModal').classList.remove('hidden');
+    ['EURUSD', 'XAUUSD'].forEach(a => UI.updateSession(a));
+    lucide.createIcons();
+}
+function openRiskModal() { document.getElementById('riskModal').classList.remove('hidden'); lucide.createIcons(); }
+function openStrategiesModal() { document.getElementById('strategiesModal').classList.remove('hidden'); lucide.createIcons(); }
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    if (id === 'sessionModal') S.sessionOpen = false;
+}
+function toggleConfig() { document.getElementById('configModal').classList.toggle('hidden'); lucide.createIcons(); }
+
+function setConn(ok,txt){
+    const el=document.getElementById('connStatus');
+    document.getElementById('connText').innerText=txt;
+    el.className=ok
+        ?'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/40 text-emerald-400 text-[11px] font-semibold'
+        :'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-950/50 border border-red-800/40 text-red-400 text-[11px] font-semibold';
+    el.querySelector('span').className=ok?'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse':'w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse';
+}
+
+function calcRisk(){
+    const bal=+document.getElementById('riskBal').value||0;
+    const pct=+document.getElementById('riskPct').value||0;
+    const sl=+document.getElementById('riskSL').value||1;
+    const risk=bal*(pct/100);
+    document.getElementById('riskAmt').innerText='$'+risk.toFixed(2);
+    document.getElementById('lotEUR').innerText=(risk/(sl*10)).toFixed(2);
+    document.getElementById('lotXAU').innerText=(risk/(sl*100)).toFixed(2);
+}
+
+function toggleFeedUI(){document.getElementById('twelveBox').classList.toggle('hidden',document.getElementById('feedType').value!=='TWELVE_DATA');}
+
+function saveConfig(){
+    S.feed=document.getElementById('feedType').value;
+    localStorage.setItem('sms_feed',S.feed);
+    if(S.feed==='TWELVE_DATA'){
+        S.key=document.getElementById('apiKey').value.trim();
+        localStorage.setItem('sms_key',S.key);
+    }
+    S.deepseekKey=document.getElementById('deepseekKey').value.trim();
+    localStorage.setItem('sms_deepseek',S.deepseekKey);
+    S.grokKey=document.getElementById('grokKey').value.trim();
+    localStorage.setItem('sms_grok',S.grokKey);
+    updateDeepseekStatus();
+    updateGrokStatus();
+    closeModal('configModal');
+    Data.connect();
+    // Ativar análise automática das IAs
+    AI.startAuto();
+}
+
+function updateDeepseekStatus(){
+    const el=document.getElementById('deepseekStatus');
+    if(!el) return;
+    el.innerHTML=(S.deepseekKey&&S.deepseekKey.length>8)
+        ?'<span class="text-emerald-400">✓ DeepSeek configurado</span>'
+        :'<span class="text-gray-500">Não configurada</span>';
+}
+function updateGrokStatus(){
+    const el=document.getElementById('grokStatus');
+    if(!el) return;
+    el.innerHTML=(S.grokKey&&S.grokKey.length>8)
+        ?'<span class="text-emerald-400">✓ Grok configurado</span>'
+        :'<span class="text-gray-500">Não configurada</span>';
+}
+
+function toggleSound(){
+    S.sound=!S.sound;
+    document.getElementById('soundBtn').classList.toggle('bg-accent/20',S.sound);
+    document.getElementById('soundBtn').classList.toggle('text-accent',S.sound);
+}
+function forceRefresh(){
+    if(S.feed==='TWELVE_DATA') Data.fetch();
+    else ['EURUSD','XAUUSD'].forEach(a=>{Engine.analyze(a); UI.render(a);});
+}
+function notify(asset, sig, price, reason, str) {
+    const now = Date.now();
+    // Alertas mais responsivos (mínimo 12s entre sons do mesmo ativo)
+    if (now - S.lastNotif[asset] < 12000) return;
+    S.lastNotif[asset] = now;
+
+    const name = asset === 'EURUSD' ? 'EUR/USD' : 'XAU/USD';
+    const pr = typeof price === 'number' ? (asset === 'EURUSD' ? price.toFixed(5) : price.toFixed(2)) : price;
+
+    // Som diferenciado
+    if (S.sound) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            if (sig === 'BUY') { o.frequency.value = 880; g.gain.value = 0.15; }
+            else if (sig === 'SELL') { o.frequency.value = 440; g.gain.value = 0.15; }
+            else { o.frequency.value = 330; g.gain.value = 0.08; }
+            o.start();
+            o.stop(ctx.currentTime + 0.15);
+        } catch (e) {}
+    }
+
+    // Toast visual no topo (se o gráfico estiver aberto ou sempre)
+    showToast(asset, sig, name, pr, str, reason);
+}
+
+function showToast(asset, sig, name, price, str, reason) {
+    // Remove toasts antigos
+    document.querySelectorAll('.sms-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = 'sms-toast fixed top-16 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-xl border-2 shadow-lg text-sm font-bold flex items-center gap-2 animate-pulse';
+    if (sig === 'BUY') {
+        toast.className += ' bg-emerald-950/95 border-emerald-500 text-emerald-300';
+        toast.innerHTML = `🟢 ${name} → BOM PARA COMPRAR (${str}%) @ ${price}`;
+    } else if (sig === 'SELL') {
+        toast.className += ' bg-red-950/95 border-red-500 text-red-300';
+        toast.innerHTML = `🔴 ${name} → BOM PARA VENDER (${str}%) @ ${price}`;
+    } else {
+        toast.className += ' bg-yellow-950/95 border-yellow-500 text-yellow-300';
+        toast.innerHTML = `🟡 ${name} → AGUARDAR (${str}%)`;
+    }
+    if (reason) toast.innerHTML += `<span class="text-[11px] font-normal opacity-80">• ${reason}</span>`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.4s';
+        setTimeout(() => toast.remove(), 400);
+    }, 4500);
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+    lucide.createIcons();
+    UI.init();
+    Data.init();
+    // Se já existirem API Keys guardadas, inicia análise automática
+    if (S.deepseekKey || S.grokKey) {
+        AI.startAuto();
+    }
+});
+</script>
+</body>
+</html>
